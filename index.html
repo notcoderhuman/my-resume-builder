@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Resume Builder</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-mode">
+  <div class="container">
+    <div class="form-section">
+      <h1>My Resume Builder</h1>
+      <div class="autosave">Autosaved</div>
+      <form id="resume-form">
+        <label>Full Name</label>
+        <input type="text" id="name" placeholder="Your Name">
+
+        <label>Role / Headline (e.g., Full-Stack Developer)</label>
+        <input type="text" id="role" placeholder="Role / Headline (e.g., Full-Stack Developer)">
+
+        <label>Summary</label>
+        <textarea id="summary" placeholder="Write 2-4 lines that summarize your strengths, impact, and what roles you want. Keep it clear and measurable."></textarea>
+
+        <label>Skills (comma-separated)</label>
+        <input type="text" id="skills" placeholder="JavaScript, React, Node.js">
+
+        <label>Experience (format: Company Name - Role | Jun 2025 - Aug 2025 | Bullet 1 | Bullet 2)</label>
+        <textarea id="experience" placeholder="Company Name - Software Engineer Intern | Jun 2025 - Aug 2025 | Built a feature that improved a key metric by 20% by optimizing APIs and caching. | Collaborated with designers and engineers to ship improvements weekly."></textarea>
+
+        <label>Education (same format)</label>
+        <textarea id="education" placeholder="Your University - B.Sc. in Computer Science | 2022 - 2026 | Relevant coursework: Data Structures, Web Development"></textarea>
+
+        <label>Phone</label>
+        <input type="tel" id="phone" placeholder="Phone">
+
+        <label>Location (City, Country)</label>
+        <input type="text" id="location" placeholder="Location (City, Country)">
+
+        <label>Website[](https://...)</label>
+        <input type="url" id="website" placeholder="Website[](https://...)">
+
+        <label>LinkedIn (profile URL)</label>
+        <input type="url" id="linkedin" placeholder="LinkedIn (profile URL)">
+
+        <label>GitHub (profile URL)</label>
+        <input type="url" id="github" placeholder="GitHub (profile URL)">
+
+        <label>Projects (same format as experience)</label>
+        <textarea id="projects" placeholder="Project Name | Description | Tech used"></textarea>
+
+        <label>Certifications (same format)</label>
+        <textarea id="certifications" placeholder="Cert Name - Issuer | Date"></textarea>
+      </form>
+      <div class="buttons">
+        <button onclick="copyHTML()">Copy HTML</button>
+        <button onclick="printPDF()">Print / PDF</button>
+        <button onclick="resetForm()">Reset</button>
+      </div>
+    </div>
+    <div class="preview-section">
+      <div id="preview" class="preview-card">
+        <!-- Preview goes here -->
+      </div>
+    </div>
+  </div>
+  <script src="script.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</body>
+</html>
