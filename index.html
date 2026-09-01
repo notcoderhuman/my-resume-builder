@@ -16,7 +16,7 @@
         <input type="text" id="name" placeholder="Your Name">
 
         <label>Role / Headline (e.g., Full-Stack Developer)</label>
-        <input type="text" id="role" placeholder="Role / Headline (e.g., Full-Stack Developer)">
+        <input type="text" id="role" placeholder="e.g., Full-Stack Developer">
 
         <label>Summary</label>
         <textarea id="summary" placeholder="Write 2-4 lines that summarize your strengths, impact, and what roles you want. Keep it clear and measurable."></textarea>
@@ -34,16 +34,16 @@
         <input type="tel" id="phone" placeholder="Phone">
 
         <label>Location (City, Country)</label>
-        <input type="text" id="location" placeholder="Location (City, Country)">
+        <input type="text" id="location" placeholder="e.g., San Francisco, USA">
 
-        <label>Website[](https://...)</label>
-        <input type="url" id="website" placeholder="Website[](https://...)">
+        <label>Website</label>
+        <input type="url" id="website" placeholder="https://example.com">
 
         <label>LinkedIn (profile URL)</label>
-        <input type="url" id="linkedin" placeholder="LinkedIn (profile URL)">
+        <input type="url" id="linkedin" placeholder="https://linkedin.com/in/yourname">
 
         <label>GitHub (profile URL)</label>
-        <input type="url" id="github" placeholder="GitHub (profile URL)">
+        <input type="url" id="github" placeholder="https://github.com/yourname">
 
         <label>Projects (same format as experience)</label>
         <textarea id="projects" placeholder="Project Name | Description | Tech used"></textarea>
@@ -52,9 +52,9 @@
         <textarea id="certifications" placeholder="Cert Name - Issuer | Date"></textarea>
       </form>
       <div class="buttons">
-        <button onclick="copyHTML()">Copy HTML</button>
-        <button onclick="printPDF()">Print / PDF</button>
-        <button onclick="resetForm()">Reset</button>
+        <button id="copy-btn">Copy HTML</button>
+        <button id="pdf-btn">Print / PDF</button>
+        <button id="reset-btn">Reset</button>
       </div>
     </div>
     <div class="preview-section">

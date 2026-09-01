@@ -124,6 +124,51 @@ button:hover {
   font-style: italic;
 }
 
+/* Validation states */
+input.input-error, textarea.input-error {
+  border-color: #f85149;
+}
+
+.field-error {
+  color: #f85149;
+  font-size: 0.8em;
+  margin-top: 4px;
+}
+
+.error-banner {
+  display: none;
+  background-color: rgba(248, 81, 73, 0.15);
+  border: 1px solid #f85149;
+  color: #f85149;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 15px;
+  font-size: 0.9em;
+}
+
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background-color: #21262d;
+  color: #c9d1d9;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 10px 16px;
+  font-size: 0.9em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 1000;
+  max-width: 90vw;
+}
+
+.toast-show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .container {

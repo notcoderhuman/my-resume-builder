@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resume Builder — Tests</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/qunit/2.20.0/qunit.min.css">
+</head>
+<body>
+  <div id="qunit"></div>
+  <div id="qunit-fixture"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qunit/2.20.0/qunit.min.js"></script>
+  <script src="script.js"></script>
+  <script>
+    /* ============================================================
+       Tests for the pure logic functions in script.js
+       ============================================================ */
+
+    QUnit.module('escapeHtml');
+
+    QUnit.test('escapes special HTML characters', (assert) => {
+      assert.equal(escapeHtml('<script>alert("xss")</script>'),
+        '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+      assert.equal(escapeHtml("it's a test"), 'it&#39;s a test');
+      assert.equal(escapeHtml('a & b < c > d'), 'a &amp; b &lt; c &gt; d');
+    });
+
+    QUnit.test('handles falsy and edge-case inputs', (assert) => {
+      assert.equal(escapeHtml(''), '');
+      assert.equal(escapeHtml(null), '');
+      assert.equal(escapeHtml(undefined), '');
+      assert.equal(escapeHtml(0), '0');
+      assert.equal(escapeHtml('plain text'), 'plain text');
+    });
+
+    QUnit.module('sanitizeUrl');
+
+    QUnit.test('allows https:// and http:// URLs', (assert) => {
+      assert.equal(sanitizeUrl('https://example.com'), 'https://example.com');
+      assert.equal(sanitizeUrl('http://example.com'), 'http://example.com');
+      assert.equal(sanitizeUrl('https://linkedin.com/in/user'), 'https://linkedin.com/in/user');
+    });
+
+    QUnit.test('rejects dangerous URL schemes', (assert) => {
+      assert.equal(sanitizeUrl('javascript:alert(1)'), '');
+      assert.equal(sanitizeUrl('data:text/html,<script>alert(1)</script>'), '');
+      assert.equal(sanitizeUrl('vbscript:msgbox(1)'), '');
+      assert.equal(sanitizeUrl('file:///etc/passwd'), '');
+    });
+
+    QUnit.test('rejects missing protocol', (assert) => {
+      assert.equal(sanitizeUrl('www.example.com'), '');
+      assert.equal(sanitizeUrl('example.com'), '');
+    });
+
+    QUnit.test('rejects empty / falsy input', (assert) => {
+      assert.equal(sanitizeUrl(''), '');
+      assert.equal(sanitizeUrl(null), '');
+      assert.equal(sanitizeUrl(undefined), '');
+    });
+
+    QUnit.module('validateField');
+
+    QUnit.test('name is required and respects length limit', (assert) => {
+      assert.equal(validateField('name', ''), 'Name is required.');
+      assert.equal(validateField('name', '  '), 'Name is required.');
+      assert.equal(validateField('name', 'John'), '');
+      assert.equal(validateField('name', 'A'.repeat(101)), 'Name must be under 100 characters.');
+      assert.equal(validateField('name', 'A'.repeat(100)), '');
+    });
+
+    QUnit.test('role is required', (assert) => {
+      assert.equal(validateField('role', ''), 'Role / headline is required.');
+      assert.equal(validateField('role', '  '), 'Role / headline is required.');
+      assert.equal(validateField('role', 'Developer'), '');
+    });
+
+    QUnit.test('website URL validation', (assert) => {
+      assert.equal(validateField('website', ''), '');
+      assert.equal(validateField('website', 'https://example.com'), '');
+      assert.equal(validateField('website', 'javascript:void(0)'), 'Website must start with http:// or https:// (e.g. https://example.com).');
+      assert.equal(validateField('website', 'not-a-url'), 'Website must start with http:// or https:// (e.g. https://example.com).');
+    });
+
+    QUnit.test('skills validation', (assert) => {
+      assert.equal(validateField('skills', ''), '');
+      assert.equal(validateField('skills', 'JavaScript'), '');
+      assert.equal(validateField('skills', '  '), '');
+    });
+
+    QUnit.test('section validation (experience/education)', (assert) => {
+      assert.equal(validateField('experience', ''), '');
+      assert.equal(validateField('experience', 'Company | Role | Did stuff'), '');
+      assert.equal(validateField('education', 'Uni | Degree | Studied CS'), '');
+    });
+
+    QUnit.test('phone validation', (assert) => {
+      assert.equal(validateField('phone', ''), '');
+      assert.equal(validateField('phone', '+1-555-1234'), '');
+      assert.equal(validateField('phone', '12'), 'Phone number looks too short.');
+    });
+
+    QUnit.module('parseSection');
+
+    QUnit.test('parses pipe-delimited entries', (assert) => {
+      const text = 'Company - Role | Jun 2025 | Did A | Did B\nOrg - Title | 2023 | Did C';
+      const result = parseSection(text);
+      assert.equal(result.length, 2);
+      assert.equal(result[0].main, 'Company - Role');
+      assert.equal(result[0].meta, 'Jun 2025');
+      assert.deepEqual(result[0].bullets, ['Did A', 'Did B']);
+      assert.equal(result[1].main, 'Org - Title');
+      assert.equal(result[1].meta, '2023');
+      assert.deepEqual(result[1].bullets, ['Did C']);
+    });
+
+    QUnit.test('handles empty input', (assert) => {
+      assert.deepEqual(parseSection(''), []);
+      assert.deepEqual(parseSection(null), []);
+      assert.deepEqual(parseSection(undefined), []);
+    });
+
+    QUnit.test('handles minimum-format entries (no bullets)', (assert) => {
+      const text = 'Company - Role | Jun 2025';
+      const result = parseSection(text);
+      assert.equal(result.length, 1);
+      assert.equal(result[0].main, 'Company - Role');
+      assert.equal(result[0].meta, 'Jun 2025');
+      assert.deepEqual(result[0].bullets, []);
+    });
+
+    QUnit.test('handles plain text fallback (no pipes)', (assert) => {
+      const text = 'Some plain text entry';
+      const result = parseSection(text);
+      assert.equal(result.length, 1);
+      assert.equal(result[0].main, 'Some plain text entry');
+      assert.equal(result[0].meta, '');
+      assert.deepEqual(result[0].bullets, []);
+    });
+
+    QUnit.module('parseSkills');
+
+    QUnit.test('parses comma-separated skills', (assert) => {
+      assert.deepEqual(parseSkills('JavaScript, React, Node.js'), ['JavaScript', 'React', 'Node.js']);
+      assert.deepEqual(parseSkills('  CSS  ,  HTML  '), ['CSS', 'HTML']);
+    });
+
+    QUnit.test('handles empty input', (assert) => {
+      assert.deepEqual(parseSkills(''), []);
+      assert.deepEqual(parseSkills(null), []);
+      assert.deepEqual(parseSkills(undefined), []);
+    });
+
+    QUnit.test('filters empty entries', (assert) => {
+      assert.deepEqual(parseSkills('a, , b,'), ['a', 'b']);
+    });
+  </script>
+</body>
+</html>
