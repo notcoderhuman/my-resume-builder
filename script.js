@@ -81,6 +81,202 @@ function parseSkills(skills) {
 }
 
 /* ------------------------------------------------------------
+   1B. STRUCTURED RESUME MODEL
+   ------------------------------------------------------------ */
+
+const RESUME_SCHEMA_VERSION = 1;
+let resumeIdCounter = 0;
+let currentResume = null;
+
+// Create an ID once and retain it when an entry is normalized or edited.
+// crypto.randomUUID is used where available; the fallback keeps the model
+// usable in older browsers and in the lightweight Node test environment.
+function createResumeId(prefix) {
+  const safePrefix = String(prefix || 'entry').replace(/[^a-z0-9_-]/gi, '') || 'entry';
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `${safePrefix}-${crypto.randomUUID()}`;
+  }
+  resumeIdCounter += 1;
+  return `${safePrefix}-${Date.now().toString(36)}-${resumeIdCounter.toString(36)}`;
+}
+
+// The single canonical factory for a new resume document.
+function createDefaultResume() {
+  return {
+    schemaVersion: RESUME_SCHEMA_VERSION,
+    personal: {
+      name: '',
+      role: '',
+      email: '',
+      phone: '',
+      location: '',
+      website: '',
+      linkedin: '',
+      github: ''
+    },
+    summary: '',
+    skills: [],
+    experience: [],
+    education: [],
+    projects: [],
+    certifications: []
+  };
+}
+
+function normalizeText(value) {
+  return value === null || value === undefined ? '' : String(value).trim();
+}
+
+function normalizeStringList(values) {
+  const source = Array.isArray(values) ? values : [];
+  return source
+    .map(normalizeText)
+    .filter(Boolean)
+    .filter((value, index, list) => list.indexOf(value) === index);
+}
+
+function normalizeEntryId(value, prefix) {
+  return normalizeText(value) || createResumeId(prefix);
+}
+
+function normalizeResume(resume) {
+  const source = resume && typeof resume === 'object' ? resume : {};
+  const personal = source.personal && typeof source.personal === 'object' ? source.personal : {};
+  const usedEntryIds = new Set();
+  const uniqueEntryId = (value, prefix) => {
+    let id = normalizeEntryId(value, prefix);
+    while (usedEntryIds.has(id)) id = createResumeId(prefix);
+    usedEntryIds.add(id);
+    return id;
+  };
+  const normalizeEntries = (entries, prefix, mapper) => (Array.isArray(entries) ? entries : [])
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry) => mapper(entry, uniqueEntryId(entry.id, prefix)));
+
+  return {
+    schemaVersion: RESUME_SCHEMA_VERSION,
+    personal: {
+      name: normalizeText(personal.name),
+      role: normalizeText(personal.role),
+      email: normalizeText(personal.email),
+      phone: normalizeText(personal.phone),
+      location: normalizeText(personal.location),
+      website: normalizeText(personal.website),
+      linkedin: normalizeText(personal.linkedin),
+      github: normalizeText(personal.github)
+    },
+    summary: normalizeText(source.summary),
+    skills: normalizeStringList(source.skills),
+    experience: normalizeEntries(source.experience, 'experience', (entry, id) => ({
+      id,
+      company: normalizeText(entry.company),
+      role: normalizeText(entry.role),
+      dateRange: normalizeText(entry.dateRange),
+      bullets: normalizeStringList(entry.bullets)
+    })),
+    education: normalizeEntries(source.education, 'education', (entry, id) => ({
+      id,
+      institution: normalizeText(entry.institution),
+      degree: normalizeText(entry.degree),
+      dateRange: normalizeText(entry.dateRange),
+      details: normalizeText(entry.details)
+    })),
+    projects: normalizeEntries(source.projects, 'project', (entry, id) => ({
+      id,
+      title: normalizeText(entry.title),
+      dateRange: normalizeText(entry.dateRange),
+      technologies: normalizeStringList(entry.technologies),
+      bullets: normalizeStringList(entry.bullets)
+    })),
+    certifications: normalizeEntries(source.certifications, 'certification', (entry, id) => ({
+      id,
+      name: normalizeText(entry.name),
+      issuer: normalizeText(entry.issuer),
+      date: normalizeText(entry.date)
+    }))
+  };
+}
+
+// Return validation results without mutating the supplied resume. Normalization
+// is included so callers can safely render or persist its canonical shape.
+function validateStructuredResume(resume) {
+  const errors = {};
+  if (!resume || typeof resume !== 'object') {
+    errors.schema = 'Resume must be an object.';
+  } else if (resume.schemaVersion !== RESUME_SCHEMA_VERSION) {
+    errors.schemaVersion = `Unsupported schema version. Expected ${RESUME_SCHEMA_VERSION}.`;
+  }
+
+  const normalized = normalizeResume(resume);
+  const personal = normalized.personal;
+  if (!personal.name) errors['personal.name'] = 'Name is required.';
+  if (!personal.role) errors['personal.role'] = 'Role / headline is required.';
+  ['website', 'linkedin', 'github'].forEach((field) => {
+    const message = validateHttpUrl(personal[field], field === 'linkedin' ? 'LinkedIn' : field === 'github' ? 'GitHub' : 'Website');
+    if (message) errors[`personal.${field}`] = message;
+  });
+  if (personal.email) {
+    const message = VALIDATORS.email(personal.email);
+    if (message) errors['personal.email'] = message;
+  }
+  if (personal.phone) {
+    const message = VALIDATORS.phone(personal.phone);
+    if (message) errors['personal.phone'] = message;
+  }
+
+  return { valid: Object.keys(errors).length === 0, errors, resume: normalized };
+}
+
+function splitLegacyTitle(value) {
+  const parts = normalizeText(value).split(/\s+-\s+/, 2);
+  return { primary: parts[0] || '', secondary: parts[1] || '' };
+}
+
+// Temporary compatibility adapter. Phase 1B-2 will migrate saved flat data;
+// until then this converts the existing form values into the canonical model.
+function createResumeFromLegacyFormData(data, previousResume) {
+  const source = data && typeof data === 'object' ? data : {};
+  const previous = normalizeResume(previousResume || createDefaultResume());
+  const toEntries = (text, previousEntries, prefix, mapper) => parseSection(text)
+    .map((entry, index) => mapper(entry, previousEntries[index] && previousEntries[index].id || createResumeId(prefix)));
+
+  return normalizeResume({
+    schemaVersion: RESUME_SCHEMA_VERSION,
+    personal: {
+      name: source.name,
+      role: source.role,
+      email: source.email,
+      phone: source.phone,
+      location: source.location,
+      website: source.website,
+      linkedin: source.linkedin,
+      github: source.github
+    },
+    summary: source.summary,
+    skills: parseSkills(source.skills),
+    experience: toEntries(source.experience, previous.experience, 'experience', (entry, id) => {
+      const title = splitLegacyTitle(entry.main);
+      return { id, company: title.primary, role: title.secondary, dateRange: entry.meta, bullets: entry.bullets };
+    }),
+    education: toEntries(source.education, previous.education, 'education', (entry, id) => {
+      const title = splitLegacyTitle(entry.main);
+      return { id, institution: title.primary, degree: title.secondary, dateRange: entry.meta, details: entry.bullets.join('\n') };
+    }),
+    projects: toEntries(source.projects, previous.projects, 'project', (entry, id) => ({
+      id,
+      title: entry.main,
+      dateRange: entry.meta,
+      technologies: entry.bullets.flatMap(parseSkills),
+      bullets: []
+    })),
+    certifications: toEntries(source.certifications, previous.certifications, 'certification', (entry, id) => {
+      const title = splitLegacyTitle(entry.main);
+      return { id, name: title.primary, issuer: title.secondary, date: entry.meta };
+    })
+  });
+}
+
+/* ------------------------------------------------------------
    2. VALIDATION
    ------------------------------------------------------------ */
 
@@ -224,7 +420,7 @@ function removeFromStorage() {
    ------------------------------------------------------------ */
 
 function buildSkillsHtml(skills) {
-  const list = parseSkills(skills);
+  const list = Array.isArray(skills) ? normalizeStringList(skills) : parseSkills(skills);
   if (!list.length) return '';
   return list
     .map((s) => `<span class="skill">${escapeHtml(s)}</span>`)
@@ -264,34 +460,86 @@ function buildLinks(data) {
   return (line1 ? `<p>${line1}</p>` : '') + (line2 ? `<p>${line2}</p>` : '');
 }
 
+function buildStructuredEntriesHtml(entries) {
+  return entries.map((entry) => {
+    const bullets = entry.bullets.map((bullet) => `<p>• ${escapeHtml(bullet)}</p>`).join('');
+    return `
+      <div class="experience-entry">
+        <div class="experience-role">${escapeHtml(entry.main)}</div>
+        ${entry.meta ? `<div class="experience-date">${escapeHtml(entry.meta)}</div>` : ''}
+        ${bullets}
+      </div>
+    `;
+  }).join('');
+}
+
+function buildExperienceHtml(entries) {
+  return buildStructuredEntriesHtml(entries.map((entry) => ({
+    main: [entry.company, entry.role].filter(Boolean).join(' - '),
+    meta: entry.dateRange,
+    bullets: entry.bullets
+  })));
+}
+
+function buildEducationHtml(entries) {
+  return buildStructuredEntriesHtml(entries.map((entry) => ({
+    main: [entry.institution, entry.degree].filter(Boolean).join(' - '),
+    meta: entry.dateRange,
+    bullets: entry.details ? entry.details.split('\n').filter(Boolean) : []
+  })));
+}
+
+function buildProjectsHtml(entries) {
+  return buildStructuredEntriesHtml(entries.map((entry) => ({
+    main: entry.title,
+    meta: entry.dateRange,
+    bullets: entry.bullets.length ? entry.bullets : (entry.technologies.length ? [entry.technologies.join(', ')] : [])
+  })));
+}
+
+function buildCertificationsHtml(entries) {
+  return buildStructuredEntriesHtml(entries.map((entry) => ({
+    main: [entry.name, entry.issuer].filter(Boolean).join(' - '),
+    meta: entry.date,
+    bullets: []
+  })));
+}
+
 function updatePreview() {
   const data = getFormData();
-  const saved = saveToStorage(data);
+  const legacyData = getLegacyFormData();
+  // Keep using the existing localStorage key and flat values until the
+  // dedicated migration phase. The app itself now renders from `data`.
+  const saved = saveToStorage(legacyData);
   if (saved) showAutosave();
 
   const skillsHtml = buildSkillsHtml(data.skills);
+  const experienceHtml = buildExperienceHtml(data.experience);
+  const educationHtml = buildEducationHtml(data.education);
+  const projectsHtml = buildProjectsHtml(data.projects);
+  const certificationsHtml = buildCertificationsHtml(data.certifications);
 
   const previewHtml = `
-    <h1>${escapeHtml(data.name || 'Your Name')}</h1>
-    <p>${escapeHtml(data.role || 'Role / Headline (e.g., Full-Stack Developer)')}</p>
+    <h1>${escapeHtml(data.personal.name || 'Your Name')}</h1>
+    <p>${escapeHtml(data.personal.role || 'Role / Headline (e.g., Full-Stack Developer)')}</p>
     ${data.summary ? `<p>${escapeHtmlMultiline(data.summary)}</p>` : ''}
     ${skillsHtml ? `<h2>Skills</h2><p>${skillsHtml}</p>` : ''}
-    ${buildSectionHtml(data.experience) ? `<h2>Experience</h2>${buildSectionHtml(data.experience)}` : ''}
-    ${buildSectionHtml(data.education) ? `<h2>Education</h2>${buildSectionHtml(data.education)}` : ''}
-    ${buildSectionHtml(data.projects) ? `<h2>Projects</h2>${buildSectionHtml(data.projects)}` : ''}
-    ${buildSectionHtml(data.certifications) ? `<h2>Certifications</h2>${buildSectionHtml(data.certifications)}` : ''}
-    ${buildLinks(data)}
+    ${experienceHtml ? `<h2>Experience</h2>${experienceHtml}` : ''}
+    ${educationHtml ? `<h2>Education</h2>${educationHtml}` : ''}
+    ${projectsHtml ? `<h2>Projects</h2>${projectsHtml}` : ''}
+    ${certificationsHtml ? `<h2>Certifications</h2>${certificationsHtml}` : ''}
+    ${buildLinks(data.personal)}
   `;
 
   document.getElementById('preview').innerHTML = previewHtml;
-  updateValidationUI(data);
+  updateValidationUI(legacyData);
 }
 
 /* ------------------------------------------------------------
    5. FORM DATA
    ------------------------------------------------------------ */
 
-function getFormData() {
+function getLegacyFormData() {
   const ids = [
     'name', 'role', 'summary', 'skills', 'experience', 'education',
     'phone', 'location', 'website', 'linkedin', 'github',
@@ -303,6 +551,13 @@ function getFormData() {
     data[id] = el ? el.value || '' : '';
   });
   return data;
+}
+
+// The structured resume is the internal representation used by the app.
+// The legacy form object remains only at the UI/storage compatibility boundary.
+function getFormData() {
+  currentResume = createResumeFromLegacyFormData(getLegacyFormData(), currentResume);
+  return currentResume;
 }
 
 /* ------------------------------------------------------------

@@ -340,6 +340,75 @@ test('removeFromStorage clears data', () => {
   assert.strictEqual(loaded, null);
 });
 
+console.log('\n  structured resume model\n');
+
+test('createDefaultResume returns the complete v1 resume shape', () => {
+  const resume = createDefaultResume();
+  assert.strictEqual(resume.schemaVersion, 1);
+  assert.deepStrictEqual(resume.personal, {
+    name: '', role: '', email: '', phone: '', location: '', website: '', linkedin: '', github: ''
+  });
+  assert.strictEqual(resume.summary, '');
+  assert.deepStrictEqual(resume.skills, []);
+  assert.deepStrictEqual(resume.experience, []);
+  assert.deepStrictEqual(resume.education, []);
+  assert.deepStrictEqual(resume.projects, []);
+  assert.deepStrictEqual(resume.certifications, []);
+});
+
+test('validateStructuredResume validates required and protected fields', () => {
+  const invalid = validateStructuredResume({
+    schemaVersion: 1,
+    personal: { name: '', role: '', website: 'javascript:alert(1)' }
+  });
+  assert.strictEqual(invalid.valid, false);
+  assert.strictEqual(invalid.errors['personal.name'], 'Name is required.');
+  assert.strictEqual(invalid.errors['personal.role'], 'Role / headline is required.');
+  assert.ok(invalid.errors['personal.website']);
+
+  const valid = validateStructuredResume({
+    schemaVersion: 1,
+    personal: { name: 'Ada Lovelace', role: 'Engineer', website: 'https://example.com' }
+  });
+  assert.strictEqual(valid.valid, true);
+});
+
+test('normalization assigns unique IDs and retains existing stable IDs', () => {
+  const normalized = normalizeResume({
+    experience: [
+      { company: 'One' },
+      { id: 'experience-kept', company: 'Two' }
+    ]
+  });
+  assert.ok(normalized.experience[0].id);
+  assert.notStrictEqual(normalized.experience[0].id, normalized.experience[1].id);
+  assert.strictEqual(normalized.experience[1].id, 'experience-kept');
+
+  const renormalized = normalizeResume(normalized);
+  assert.strictEqual(renormalized.experience[0].id, normalized.experience[0].id);
+  assert.strictEqual(renormalized.experience[1].id, 'experience-kept');
+
+  const deduplicated = normalizeResume({ projects: [{ id: 'duplicate' }, { id: 'duplicate' }] });
+  assert.notStrictEqual(deduplicated.projects[0].id, deduplicated.projects[1].id);
+});
+
+test('normalizeResume trims text and canonicalizes structured lists', () => {
+  const resume = normalizeResume({
+    schemaVersion: 99,
+    personal: { name: '  Ada  ', role: '  Developer ' },
+    summary: '  Builds things.  ',
+    skills: [' JavaScript ', '', 'JavaScript', ' CSS '],
+    projects: [{ title: '  Portfolio ', technologies: [' React ', '', 'React'], bullets: [' Shipped ' ] }]
+  });
+  assert.strictEqual(resume.schemaVersion, 1);
+  assert.strictEqual(resume.personal.name, 'Ada');
+  assert.strictEqual(resume.summary, 'Builds things.');
+  assert.deepStrictEqual(resume.skills, ['JavaScript', 'CSS']);
+  assert.strictEqual(resume.projects[0].title, 'Portfolio');
+  assert.deepStrictEqual(resume.projects[0].technologies, ['React']);
+  assert.deepStrictEqual(resume.projects[0].bullets, ['Shipped']);
+});
+
 // ── Summary ──
 
 const total = passed + failed;
