@@ -326,18 +326,22 @@ test('isStorageAvailable returns true when localStorage works', () => {
 });
 
 test('saveToStorage and loadFromStorage round-trip', () => {
-  const data = { name: 'Test', role: 'Dev' };
+  const data = {
+    schemaVersion: 1,
+    personal: { name: 'Test', role: 'Dev' }
+  };
   saveToStorage(data);
   const loaded = loadFromStorage();
-  assert.strictEqual(loaded.name, 'Test');
-  assert.strictEqual(loaded.role, 'Dev');
+  assert.strictEqual(loaded.personal.name, 'Test');
+  assert.strictEqual(loaded.personal.role, 'Dev');
 });
 
-test('removeFromStorage clears data', () => {
-  saveToStorage({ name: 'Temp' });
+test('removeFromStorage leaves a default structured resume', () => {
+  saveToStorage({ schemaVersion: 1, personal: { name: 'Temp' } });
   removeFromStorage();
   const loaded = loadFromStorage();
-  assert.strictEqual(loaded, null);
+  assert.strictEqual(loaded.schemaVersion, 1);
+  assert.strictEqual(loaded.personal.name, '');
 });
 
 console.log('\n  structured resume model\n');
@@ -407,6 +411,206 @@ test('normalizeResume trims text and canonicalizes structured lists', () => {
   assert.strictEqual(resume.projects[0].title, 'Portfolio');
   assert.deepStrictEqual(resume.projects[0].technologies, ['React']);
   assert.deepStrictEqual(resume.projects[0].bullets, ['Shipped']);
+});
+
+function withFormFields(values, callback) {
+  const originalGetElementById = document.getElementById;
+  const fields = {};
+  Object.keys(values).forEach((id) => {
+    fields[id] = { value: values[id] };
+  });
+  document.getElementById = (id) => fields[id] || null;
+  try {
+    return callback(fields);
+  } finally {
+    document.getElementById = originalGetElementById;
+  }
+}
+
+console.log('\n  structured editor state\n');
+
+test('readFormIntoResume updates the structured model without a flat state object', () => {
+  const previous = normalizeResume({
+    personal: { email: 'ada@example.com' },
+    experience: [{ id: 'experience-stable', company: 'Old', role: 'Role', dateRange: '', bullets: [] }]
+  });
+  const resume = withFormFields({
+    name: 'Ada Lovelace', role: 'Engineer', summary: 'Builds systems.', skills: 'JavaScript, CSS',
+    experience: 'Analytical Engines - Programmer | 1843 | Wrote an algorithm', education: '',
+    phone: '+44 555 12345', location: 'London', website: 'https://ada.example.com',
+    linkedin: 'https://linkedin.com/in/ada', github: 'https://github.com/ada', projects: '', certifications: ''
+  }, () => readFormIntoResume(previous));
+
+  assert.strictEqual(resume.personal.name, 'Ada Lovelace');
+  assert.strictEqual(resume.personal.email, 'ada@example.com');
+  assert.deepStrictEqual(resume.skills, ['JavaScript', 'CSS']);
+  assert.strictEqual(resume.experience[0].id, 'experience-stable');
+  assert.strictEqual(resume.experience[0].company, 'Analytical Engines');
+  assert.deepStrictEqual(resume.experience[0].bullets, ['Wrote an algorithm']);
+});
+
+test('resumeToFormValues and populateFormFromResume preserve the current form UX', () => {
+  const resume = normalizeResume({
+    personal: { name: 'Grace Hopper', role: 'Engineer', phone: '555-1234' },
+    skills: ['COBOL', 'Compilers'],
+    education: [{ id: 'education-grace', institution: 'Yale', degree: 'PhD', dateRange: '1934', details: 'Mathematics' }],
+    projects: [{ id: 'project-grace', title: 'Compiler', dateRange: '1952', technologies: ['COBOL'], bullets: ['Shipped'] }]
+  });
+  const values = resumeToFormValues(resume);
+  assert.strictEqual(values.skills, 'COBOL, Compilers');
+  assert.strictEqual(values.education, 'Yale - PhD | 1934 | Mathematics');
+  assert.strictEqual(values.projects, 'Compiler | 1952 | COBOL | Shipped');
+
+  withFormFields({ name: '', skills: '', education: '', projects: '' }, (fields) => {
+    populateFormFromResume(resume);
+    assert.strictEqual(fields.name.value, 'Grace Hopper');
+    assert.strictEqual(fields.skills.value, 'COBOL, Compilers');
+    assert.strictEqual(fields.projects.value, 'Compiler | 1952 | COBOL | Shipped');
+  });
+});
+
+test('repeatable form entries retain IDs when their text is edited', () => {
+  const previous = normalizeResume({
+    experience: [{ id: 'experience-a', company: 'Acme', role: 'Developer', dateRange: '2024', bullets: [] }],
+    certifications: [{ id: 'certification-a', name: 'Cert', issuer: 'Issuer', date: '2024' }]
+  });
+  const edited = withFormFields({
+    name: '', role: '', summary: '', skills: '', education: '', phone: '', location: '', website: '', linkedin: '', github: '', projects: '',
+    experience: 'Acme - Senior Developer | 2024 | Led delivery', certifications: 'Cert - Issuer | 2025'
+  }, () => readFormIntoResume(previous));
+  assert.strictEqual(edited.experience[0].id, 'experience-a');
+  assert.strictEqual(edited.certifications[0].id, 'certification-a');
+});
+
+test('renderResume renders structured content and continues escaping user text', () => {
+  const originalGetElementById = document.getElementById;
+  const preview = { innerHTML: '' };
+  document.getElementById = (id) => id === 'preview' ? preview : null;
+  try {
+    renderResume({
+      personal: { name: '<img src=x onerror=alert(1)>', role: 'Engineer', website: 'javascript:alert(1)' },
+      summary: 'Safe <b>text</b>', skills: ['JavaScript'],
+      experience: [{ id: 'experience-safe', company: 'Acme', role: 'Developer', dateRange: '', bullets: ['Used <script>'] }]
+    });
+  } finally {
+    document.getElementById = originalGetElementById;
+  }
+  assert.ok(preview.innerHTML.includes('&lt;img src=x onerror=alert(1)&gt;'));
+  assert.ok(preview.innerHTML.includes('Safe &lt;b&gt;text&lt;/b&gt;'));
+  assert.ok(preview.innerHTML.includes('Used &lt;script&gt;'));
+  assert.ok(!preview.innerHTML.includes('href="javascript:'));
+});
+
+console.log('\n  legacy localStorage migration\n');
+
+const legacyResumeFixture = {
+  name: 'Ada Lovelace',
+  role: 'Software Engineer',
+  email: 'ada@example.com',
+  summary: 'Writes reliable software.',
+  skills: 'JavaScript, React, JavaScript, CSS',
+  experience: 'Analytical Engines - Programmer | 1843 - 1844 | Wrote an algorithm | Documented the approach',
+  education: 'University of London - Mathematics | 1832 - 1835 | Advanced mathematics',
+  projects: 'Notes Engine | 1843 | JavaScript, HTML | Published documentation',
+  certifications: 'Computing Certificate - Royal Society | 1844',
+  phone: '+44 555 12345',
+  location: 'London, UK',
+  website: 'https://ada.example.com',
+  linkedin: 'https://linkedin.com/in/ada',
+  github: 'https://github.com/ada'
+};
+
+test('migrateLegacyResume preserves all major legacy fields and sets schema v1', () => {
+  const original = JSON.parse(JSON.stringify(legacyResumeFixture));
+  const migrated = migrateLegacyResume(legacyResumeFixture);
+  assert.deepStrictEqual(legacyResumeFixture, original);
+  assert.strictEqual(migrated.schemaVersion, 1);
+  assert.deepStrictEqual(migrated.personal, {
+    name: 'Ada Lovelace', role: 'Software Engineer', email: 'ada@example.com',
+    phone: '+44 555 12345', location: 'London, UK', website: 'https://ada.example.com',
+    linkedin: 'https://linkedin.com/in/ada', github: 'https://github.com/ada'
+  });
+  assert.strictEqual(migrated.summary, 'Writes reliable software.');
+});
+
+test('migration parses comma-separated skills without duplicates', () => {
+  assert.deepStrictEqual(migrateLegacyResume(legacyResumeFixture).skills, ['JavaScript', 'React', 'CSS']);
+});
+
+test('migration parses legacy experience entries', () => {
+  const entry = migrateLegacyResume(legacyResumeFixture).experience[0];
+  assert.ok(entry.id);
+  assert.strictEqual(entry.company, 'Analytical Engines');
+  assert.strictEqual(entry.role, 'Programmer');
+  assert.strictEqual(entry.dateRange, '1843 - 1844');
+  assert.deepStrictEqual(entry.bullets, ['Wrote an algorithm', 'Documented the approach']);
+});
+
+test('migration parses legacy education entries', () => {
+  const entry = migrateLegacyResume(legacyResumeFixture).education[0];
+  assert.strictEqual(entry.institution, 'University of London');
+  assert.strictEqual(entry.degree, 'Mathematics');
+  assert.strictEqual(entry.dateRange, '1832 - 1835');
+  assert.strictEqual(entry.details, 'Advanced mathematics');
+});
+
+test('migration parses legacy project entries', () => {
+  const entry = migrateLegacyResume(legacyResumeFixture).projects[0];
+  assert.strictEqual(entry.title, 'Notes Engine');
+  assert.strictEqual(entry.dateRange, '1843');
+  assert.deepStrictEqual(entry.technologies, ['JavaScript', 'HTML']);
+  assert.deepStrictEqual(entry.bullets, ['Published documentation']);
+});
+
+test('migration parses legacy certification entries', () => {
+  const entry = migrateLegacyResume(legacyResumeFixture).certifications[0];
+  assert.strictEqual(entry.name, 'Computing Certificate');
+  assert.strictEqual(entry.issuer, 'Royal Society');
+  assert.strictEqual(entry.date, '1844');
+});
+
+test('migration preserves malformed legacy text in a safe structured field', () => {
+  const malformed = {
+    experience: 'Free-form experience note',
+    education: 'Unstructured education note',
+    projects: '| Unlabelled project note | Rust',
+    certifications: 'Unstructured certification note'
+  };
+  const migrated = migrateLegacyResume(malformed);
+  const serialized = JSON.stringify(migrated);
+  assert.ok(serialized.includes('Free-form experience note'));
+  assert.ok(serialized.includes('Unstructured education note'));
+  assert.ok(serialized.includes('Unlabelled project note'));
+  assert.ok(serialized.includes('Unstructured certification note'));
+});
+
+test('migration is deterministic and idempotent', () => {
+  const migrated = migrateLegacyResume(legacyResumeFixture);
+  const rerun = migrateLegacyResume(migrated);
+  assert.deepStrictEqual(rerun, migrated);
+});
+
+test('already structured resumes are normalized but not migrated again', () => {
+  const structured = createDefaultResume();
+  structured.personal.name = 'Grace Hopper';
+  structured.personal.role = 'Engineer';
+  structured.experience.push({ id: 'experience-grace', company: 'Navy', role: 'Officer', dateRange: '', bullets: [] });
+  const result = migrateLegacyResume(structured);
+  assert.deepStrictEqual(result, normalizeResume(structured));
+  assert.strictEqual(result.experience[0].id, 'experience-grace');
+});
+
+test('loadFromStorage migrates legacy data once and empty storage returns a default', () => {
+  localStorage.clear();
+  const empty = loadFromStorage();
+  assert.strictEqual(empty.schemaVersion, 1);
+  assert.deepStrictEqual(empty.experience, []);
+
+  localStorage.setItem('resumeData', JSON.stringify(legacyResumeFixture));
+  const migrated = loadFromStorage();
+  const stored = JSON.parse(localStorage.getItem('resumeData'));
+  assert.deepStrictEqual(stored, migrated);
+  assert.deepStrictEqual(loadFromStorage(), migrated);
 });
 
 // ── Summary ──

@@ -232,13 +232,46 @@ function splitLegacyTitle(value) {
   return { primary: parts[0] || '', secondary: parts[1] || '' };
 }
 
-// Temporary compatibility adapter. Phase 1B-2 will migrate saved flat data;
-// until then this converts the existing form values into the canonical model.
-function createResumeFromLegacyFormData(data, previousResume) {
-  const source = data && typeof data === 'object' ? data : {};
-  const previous = normalizeResume(previousResume || createDefaultResume());
-  const toEntries = (text, previousEntries, prefix, mapper) => parseSection(text)
-    .map((entry, index) => mapper(entry, previousEntries[index] && previousEntries[index].id || createResumeId(prefix)));
+function createDeterministicLegacyId(prefix, index, rawText) {
+  // A deterministic content hash makes migration repeatable without relying on
+  // runtime UUID support. The index disambiguates identical legacy lines.
+  let hash = 2166136261;
+  const source = `${prefix}:${index}:${rawText}`;
+  for (let i = 0; i < source.length; i += 1) {
+    hash ^= source.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `${prefix}-legacy-${(hash >>> 0).toString(36)}-${index}`;
+}
+
+function parseLegacySection(text) {
+  if (text === null || text === undefined || text === '') return [];
+  return String(text)
+    .split('\n')
+    .filter((line) => line.trim())
+    .map((line) => ({
+      raw: line,
+      parts: line.split('|').map((part) => part.trim())
+    }));
+}
+
+function legacyMainOrRaw(entry) {
+  return entry.parts[0] || entry.raw.trim();
+}
+
+function isStructuredResume(data) {
+  return Boolean(data && typeof data === 'object' && data.schemaVersion === RESUME_SCHEMA_VERSION);
+}
+
+// Migrate the original flat localStorage shape into the v1 resume schema.
+// This is pure: it returns a new object and never mutates `legacyData`.
+function migrateLegacyResume(legacyData) {
+  if (isStructuredResume(legacyData)) return normalizeResume(legacyData);
+  if (!legacyData || typeof legacyData !== 'object') return createDefaultResume();
+
+  const source = legacyData;
+  const mapEntries = (text, prefix, mapper) => parseLegacySection(text)
+    .map((entry, index) => mapper(entry, createDeterministicLegacyId(prefix, index, entry.raw)));
 
   return normalizeResume({
     schemaVersion: RESUME_SCHEMA_VERSION,
@@ -254,23 +287,103 @@ function createResumeFromLegacyFormData(data, previousResume) {
     },
     summary: source.summary,
     skills: parseSkills(source.skills),
-    experience: toEntries(source.experience, previous.experience, 'experience', (entry, id) => {
-      const title = splitLegacyTitle(entry.main);
+    experience: mapEntries(source.experience, 'experience', (entry, id) => {
+      if (!entry.parts[0]) {
+        return { id, company: entry.raw.trim(), role: '', dateRange: '', bullets: [] };
+      }
+      const title = splitLegacyTitle(legacyMainOrRaw(entry));
+      return {
+        id,
+        company: title.primary || entry.raw.trim(),
+        role: title.secondary,
+        dateRange: entry.parts.length > 1 ? entry.parts[1] : '',
+        bullets: entry.parts.slice(2).filter(Boolean)
+      };
+    }),
+    education: mapEntries(source.education, 'education', (entry, id) => {
+      if (!entry.parts[0]) {
+        return { id, institution: entry.raw.trim(), degree: '', dateRange: '', details: '' };
+      }
+      const title = splitLegacyTitle(legacyMainOrRaw(entry));
+      return {
+        id,
+        institution: title.primary || entry.raw.trim(),
+        degree: title.secondary,
+        dateRange: entry.parts.length > 1 ? entry.parts[1] : '',
+        details: entry.parts.slice(2).filter(Boolean).join('\n')
+      };
+    }),
+    projects: mapEntries(source.projects, 'project', (entry, id) => {
+      if (!entry.parts[0]) {
+        return { id, title: entry.raw.trim(), dateRange: '', technologies: [], bullets: [] };
+      }
+      return {
+        id,
+        title: legacyMainOrRaw(entry),
+        dateRange: entry.parts.length > 1 ? entry.parts[1] : '',
+        technologies: entry.parts.length > 2 ? parseSkills(entry.parts[2]) : [],
+        bullets: entry.parts.slice(3).filter(Boolean)
+      };
+    }),
+    certifications: mapEntries(source.certifications, 'certification', (entry, id) => {
+      if (!entry.parts[0]) {
+        return { id, name: entry.raw.trim(), issuer: '', date: '' };
+      }
+      const title = splitLegacyTitle(legacyMainOrRaw(entry));
+      return {
+        id,
+        name: title.primary || entry.raw.trim(),
+        issuer: title.secondary,
+        date: entry.parts.length > 1 ? entry.parts[1] : ''
+      };
+    })
+  });
+}
+
+function getFormValue(id) {
+  const field = document.getElementById(id);
+  return field ? field.value || '' : '';
+}
+
+// Read the existing form controls directly into the canonical structured
+// document. The pipe-delimited textareas remain a temporary editing surface,
+// not application state or a second persisted representation.
+function readFormIntoResume(previousResume) {
+  const previous = normalizeResume(previousResume || createDefaultResume());
+  const toEntries = (fieldId, previousEntries, prefix, mapper) => parseSection(getFormValue(fieldId))
+    .map((entry, index) => mapper(entry, previousEntries[index] && previousEntries[index].id || createResumeId(prefix)));
+
+  return normalizeResume({
+    schemaVersion: RESUME_SCHEMA_VERSION,
+    personal: {
+      name: getFormValue('name'),
+      role: getFormValue('role'),
+      email: previous.personal.email,
+      phone: getFormValue('phone'),
+      location: getFormValue('location'),
+      website: getFormValue('website'),
+      linkedin: getFormValue('linkedin'),
+      github: getFormValue('github')
+    },
+    summary: getFormValue('summary'),
+    skills: parseSkills(getFormValue('skills')),
+    experience: toEntries('experience', previous.experience, 'experience', (entry, id) => {
+      const title = splitLegacyTitle(entry.main || [entry.meta].concat(entry.bullets).join(' | '));
       return { id, company: title.primary, role: title.secondary, dateRange: entry.meta, bullets: entry.bullets };
     }),
-    education: toEntries(source.education, previous.education, 'education', (entry, id) => {
-      const title = splitLegacyTitle(entry.main);
+    education: toEntries('education', previous.education, 'education', (entry, id) => {
+      const title = splitLegacyTitle(entry.main || [entry.meta].concat(entry.bullets).join(' | '));
       return { id, institution: title.primary, degree: title.secondary, dateRange: entry.meta, details: entry.bullets.join('\n') };
     }),
-    projects: toEntries(source.projects, previous.projects, 'project', (entry, id) => ({
+    projects: toEntries('projects', previous.projects, 'project', (entry, id) => ({
       id,
-      title: entry.main,
+      title: entry.main || [entry.meta].concat(entry.bullets).join(' | '),
       dateRange: entry.meta,
-      technologies: entry.bullets.flatMap(parseSkills),
-      bullets: []
+      technologies: entry.bullets.length ? parseSkills(entry.bullets[0]) : [],
+      bullets: entry.bullets.slice(1)
     })),
-    certifications: toEntries(source.certifications, previous.certifications, 'certification', (entry, id) => {
-      const title = splitLegacyTitle(entry.main);
+    certifications: toEntries('certifications', previous.certifications, 'certification', (entry, id) => {
+      const title = splitLegacyTitle(entry.main || [entry.meta].concat(entry.bullets).join(' | '));
       return { id, name: title.primary, issuer: title.secondary, date: entry.meta };
     })
   });
@@ -383,10 +496,11 @@ function isStorageAvailable() {
 }
 
 function saveToStorage(data) {
-  memoryData = data;
+  const structured = normalizeResume(data);
+  memoryData = structured;
   if (!isStorageAvailable()) return false;
   try {
-    window.localStorage.setItem('resumeData', JSON.stringify(data));
+    window.localStorage.setItem('resumeData', JSON.stringify(structured));
     return true;
   } catch (e) {
     return false;
@@ -394,14 +508,22 @@ function saveToStorage(data) {
 }
 
 function loadFromStorage() {
-  if (!isStorageAvailable()) return null;
+  if (!isStorageAvailable()) return createDefaultResume();
   try {
     const raw = window.localStorage.getItem('resumeData');
-    if (!raw) return null;
+    if (!raw) return createDefaultResume();
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : null;
+    if (!parsed || typeof parsed !== 'object') return createDefaultResume();
+
+    if (isStructuredResume(parsed)) return normalizeResume(parsed);
+
+    const migrated = migrateLegacyResume(parsed);
+    // Store the canonical document under the existing key. This replaces the
+    // former flat source of truth rather than maintaining parallel records.
+    saveToStorage(migrated);
+    return migrated;
   } catch (e) {
-    return null;
+    return createDefaultResume();
   }
 }
 
@@ -505,13 +627,8 @@ function buildCertificationsHtml(entries) {
   })));
 }
 
-function updatePreview() {
-  const data = getFormData();
-  const legacyData = getLegacyFormData();
-  // Keep using the existing localStorage key and flat values until the
-  // dedicated migration phase. The app itself now renders from `data`.
-  const saved = saveToStorage(legacyData);
-  if (saved) showAutosave();
+function renderResume(resume) {
+  const data = normalizeResume(resume);
 
   const skillsHtml = buildSkillsHtml(data.skills);
   const experienceHtml = buildExperienceHtml(data.experience);
@@ -531,15 +648,15 @@ function updatePreview() {
     ${buildLinks(data.personal)}
   `;
 
-  document.getElementById('preview').innerHTML = previewHtml;
-  updateValidationUI(legacyData);
+  const preview = document.getElementById('preview');
+  if (preview) preview.innerHTML = previewHtml;
 }
 
 /* ------------------------------------------------------------
    5. FORM DATA
    ------------------------------------------------------------ */
 
-function getLegacyFormData() {
+function getFormValidationData() {
   const ids = [
     'name', 'role', 'summary', 'skills', 'experience', 'education',
     'phone', 'location', 'website', 'linkedin', 'github',
@@ -553,11 +670,70 @@ function getLegacyFormData() {
   return data;
 }
 
-// The structured resume is the internal representation used by the app.
-// The legacy form object remains only at the UI/storage compatibility boundary.
-function getFormData() {
-  currentResume = createResumeFromLegacyFormData(getLegacyFormData(), currentResume);
-  return currentResume;
+function resumeToFormValues(resume) {
+  const data = normalizeResume(resume);
+  const joinEntry = (main, meta, trailing) => [main, meta].concat(trailing || [])
+    .filter((part, index) => index < 2 || part !== '')
+    .join(' | ');
+
+  return {
+    name: data.personal.name,
+    role: data.personal.role,
+    summary: data.summary,
+    skills: data.skills.join(', '),
+    experience: data.experience.map((entry) => joinEntry(
+      [entry.company, entry.role].filter(Boolean).join(' - '), entry.dateRange, entry.bullets
+    )).join('\n'),
+    education: data.education.map((entry) => joinEntry(
+      [entry.institution, entry.degree].filter(Boolean).join(' - '), entry.dateRange,
+      entry.details ? entry.details.split('\n') : []
+    )).join('\n'),
+    phone: data.personal.phone,
+    location: data.personal.location,
+    website: data.personal.website,
+    linkedin: data.personal.linkedin,
+    github: data.personal.github,
+    projects: data.projects.map((entry) => joinEntry(
+      entry.title, entry.dateRange, [entry.technologies.join(', ')].concat(entry.bullets)
+    )).join('\n'),
+    certifications: data.certifications.map((entry) => joinEntry(
+      [entry.name, entry.issuer].filter(Boolean).join(' - '), entry.date, []
+    )).join('\n')
+  };
+}
+
+function populateFormFromResume(resume) {
+  const values = resumeToFormValues(resume);
+  Object.keys(values).forEach((key) => {
+    const field = document.getElementById(key);
+    if (field) field.value = values[key];
+  });
+}
+
+function saveResume(resume) {
+  currentResume = normalizeResume(resume);
+  return saveToStorage(currentResume);
+}
+
+function loadResume() {
+  const loaded = loadFromStorage();
+  return validateStructuredResume(loaded).resume;
+}
+
+let saveResumeTimer = null;
+
+function scheduleResumeSave() {
+  clearTimeout(saveResumeTimer);
+  saveResumeTimer = setTimeout(() => {
+    if (saveResume(currentResume)) showAutosave();
+  }, 300);
+}
+
+function syncResumeFromForm() {
+  currentResume = readFormIntoResume(currentResume);
+  renderResume(currentResume);
+  updateValidationUI(getFormValidationData());
+  scheduleResumeSave();
 }
 
 /* ------------------------------------------------------------
@@ -802,9 +978,12 @@ async function printPDF() {
 
 function resetForm() {
   if (confirm('Reset all fields?')) {
-    document.getElementById('resume-form').reset();
+    clearTimeout(saveResumeTimer);
+    currentResume = createDefaultResume();
+    populateFormFromResume(currentResume);
     removeFromStorage();
-    updatePreview();
+    renderResume(currentResume);
+    updateValidationUI(getFormValidationData());
     showToast('Form reset.');
   }
 }
@@ -869,34 +1048,20 @@ function init() {
   // breaks the editor.
   form.addEventListener('input', () => {
     try {
-      updatePreview();
+      syncResumeFromForm();
     } catch (e) {
       showError('Something went wrong while updating the preview: ' + e.message);
     }
   });
-
-  // Periodically refresh the preview / autosave.
-  setInterval(() => {
-    try {
-      updatePreview();
-    } catch (e) {
-      /* non-fatal */
-    }
-  }, 10000);
 
   // Warn (non-blocking) if localStorage is unavailable.
   if (!isStorageAvailable()) {
     showToast('Local storage unavailable \u2014 your data will only stay in memory for this session.');
   }
 
-  // Restore saved data.
-  const data = loadFromStorage();
-  if (data) {
-    Object.keys(data).forEach((key) => {
-      const el = document.getElementById(key);
-      if (el && typeof data[key] === 'string') el.value = data[key];
-    });
-  }
+  // Load a v1 resume or migrate the old flat localStorage record once.
+  currentResume = loadResume();
+  populateFormFromResume(currentResume);
 
   // Bind action buttons.
   const copyBtn = document.getElementById('copy-btn');
@@ -906,7 +1071,8 @@ function init() {
   if (pdfBtn) pdfBtn.addEventListener('click', printPDF);
   if (resetBtn) resetBtn.addEventListener('click', resetForm);
 
-  updatePreview();
+  renderResume(currentResume);
+  updateValidationUI(getFormValidationData());
 }
 
 document.addEventListener('DOMContentLoaded', init);
