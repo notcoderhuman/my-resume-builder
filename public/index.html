@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Liquid Evidence — Evidence Vault</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="page-shell">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Liquid Evidence</p>
+        <h1>Evidence Vault</h1>
+        <p class="subtitle">Store the career evidence you can stand behind.</p>
+      </div>
+      <button id="add-evidence-button" class="primary-button">Add Evidence</button>
+    </header>
+
+    <section class="stats" aria-label="Evidence statistics">
+      <article><span id="total-count">0</span><p>Total evidence</p></article>
+      <article><span id="project-count">0</span><p>Projects</p></article>
+      <article><span id="verified-count">0</span><p>Verified items</p></article>
+    </section>
+
+    <p id="message" class="message" role="status"></p>
+    <section id="evidence-list" class="evidence-list" aria-live="polite"></section>
+  </main>
+
+  <section id="editor" class="panel hidden" aria-label="Evidence editor">
+    <div class="panel-content">
+      <div class="panel-header"><h2 id="editor-title">Add Evidence</h2><button id="close-editor" class="text-button" aria-label="Close">×</button></div>
+      <form id="evidence-form">
+        <label>Title<input id="title" name="title" required></label>
+        <label>Type
+          <select id="type" name="type" required>
+            <option value="project">Project</option><option value="experience">Experience</option>
+            <option value="education">Education</option><option value="certification">Certification</option>
+            <option value="achievement">Achievement</option><option value="competition">Competition</option>
+            <option value="publication">Publication</option><option value="other">Other</option>
+          </select>
+        </label>
+        <label>Description<textarea id="description" name="description" required></textarea></label>
+        <label>Skills <span class="hint">(comma-separated)</span><input id="skills" name="skills" placeholder="JavaScript, APIs"></label>
+        <label>Date<input id="date" name="date" type="date"></label>
+        <div class="two-columns">
+          <label>Source type<input id="source-type" name="source-type" placeholder="github"></label>
+          <label>Source URL<input id="source-url" name="source-url" type="url" placeholder="https://example.com"></label>
+        </div>
+        <div class="metrics-section">
+          <div class="section-row"><span>Metrics</span><button id="add-metric" type="button" class="text-button">+ Add metric</button></div>
+          <div id="metrics"></div>
+        </div>
+        <div class="form-actions"><button type="button" id="cancel-editor">Cancel</button><button type="submit" class="primary-button">Save Evidence</button></div>
+      </form>
+    </div>
+  </section>
+
+  <section id="viewer" class="panel hidden" aria-label="Evidence details">
+    <div class="panel-content">
+      <div class="panel-header"><h2>Evidence details</h2><button id="close-viewer" class="text-button" aria-label="Close">×</button></div>
+      <div id="evidence-details"></div>
+    </div>
+  </section>
+  <script src="app.js"></script>
+</body>
+</html>

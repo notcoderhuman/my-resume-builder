@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "evidence": [
+    {
+      "id": "ev_3e75a911-9643-43e7-834a-74f51e3eca0d",
+      "title": "Bright Data",
+      "type": "project",
+      "description": "Built a self-healing web data reliability system using Bright Data Scraper Studio, structured data validation, and self-healing workflows.",
+      "skills": [
+        "JavaScript",
+        "Node.js",
+        "Web Scraping",
+        "APIs",
+        "Data Validation"
+      ],
+      "metrics": [],
+      "date": "2026-08-23",
+      "source": {
+        "type": "GitHub",
+        "url": "https://github.com/notcoderhuman/into-the-scrape-verse"
+      },
+      "verification": {
+        "status": "unverified",
+        "confidence": 0
+      },
+      "createdAt": "2026-09-04T11:30:02.310Z",
+      "updatedAt": "2026-09-04T12:40:15.266Z"
+    }
+  ]
+}

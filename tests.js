@@ -130,17 +130,10 @@ vm.runInThisContext(scriptCode, { filename: scriptPath });
 
 let passed = 0;
 let failed = 0;
+const testCases = [];
 
 function test(label, fn) {
-  try {
-    fn();
-    passed++;
-    console.log(`  ✓ ${label}`);
-  } catch (e) {
-    failed++;
-    console.log(`  ✗ ${label}`);
-    console.log(`      ${e.message}`);
-  }
+  testCases.push({ label, fn });
 }
 
 function assertSimilar(actual, expected) {
@@ -613,14 +606,273 @@ test('loadFromStorage migrates legacy data once and empty storage returns a defa
   assert.deepStrictEqual(loadFromStorage(), migrated);
 });
 
+console.log('\n  evidence matching\n');
+
+const { matchRequirement } = require('./lib/matching');
+
+function requirement(text, id = 'req_001') {
+  return { id, text };
+}
+
+function evidenceItem(overrides = {}) {
+  return {
+    id: 'ev_001', title: 'Python service', description: 'Built a Python API.', skills: ['Python'],
+    ...overrides
+  };
+}
+
+test('exact skill evidence supports the requirement', () => {
+  const result = matchRequirement(requirement('Python'), [evidenceItem({ title: 'API service', description: 'Built a web API.' })]);
+  assert.strictEqual(result.status, 'supported');
+  assert.strictEqual(result.score, 0.6);
+  assert.deepStrictEqual(result.evidenceIds, ['ev_001']);
+});
+
+test('matching checks a skill that is not first in the skills array', () => {
+  const result = matchRequirement(requirement('Python'), [evidenceItem({ skills: ['JavaScript', 'Node.js', 'Python'] })]);
+  assert.strictEqual(result.status, 'supported');
+  assert.ok(result.reasons.some((reason) => reason.includes('Python is explicitly listed')));
+});
+
+test('description-only and title-only matching follow the unsupported threshold', () => {
+  const description = matchRequirement(requirement('Python'), [evidenceItem({ id: 'ev_description', title: 'Service', description: 'Maintained Python code.', skills: [] })]);
+  const title = matchRequirement(requirement('Python'), [evidenceItem({ id: 'ev_title', title: 'Python tooling', description: 'Maintained tools.', skills: [] })]);
+  assert.strictEqual(description.status, 'unsupported');
+  assert.strictEqual(description.score, 0.2);
+  assert.strictEqual(title.status, 'unsupported');
+  assert.strictEqual(title.score, 0.1);
+});
+
+test('does not treat SQL as PostgreSQL or infer absent Kubernetes', () => {
+  const sql = matchRequirement(requirement('PostgreSQL'), [evidenceItem({ skills: ['SQL'], title: 'Database work', description: 'Worked with SQL.' })]);
+  const kubernetes = matchRequirement(requirement('Kubernetes'), [evidenceItem({ skills: ['Docker'], title: 'Container work', description: 'Built containers.' })]);
+  assert.strictEqual(sql.status, 'unsupported');
+  assert.strictEqual(kubernetes.status, 'unsupported');
+});
+
+test('generic cloud evidence for AWS is unverified and dynamically explained', () => {
+  const result = matchRequirement(requirement('AWS'), [evidenceItem({ id: 'ev_cloud', title: 'Deployment', description: 'Deployed the application to the cloud.', skills: [] })]);
+  assert.strictEqual(result.status, 'unverified');
+  assert.deepStrictEqual(result.evidenceIds, ['ev_cloud']);
+  assert.ok(result.reasons.every((reason) => reason.includes('AWS')));
+  assert.ok(result.reasons.every((reason) => !reason.includes('Python')));
+});
+
+test('scores use the strongest evidence and never exceed one', () => {
+  const result = matchRequirement(requirement('Python'), [
+    evidenceItem({ id: 'ev_a' }),
+    evidenceItem({ id: 'ev_b', title: 'Python application', description: 'Built a Python application.', skills: ['Python'] })
+  ]);
+  assert.ok(result.score <= 1);
+  assert.deepStrictEqual(result.evidenceIds, ['ev_a', 'ev_b']);
+});
+
+test('empty evidence is unsupported with no evidence IDs', () => {
+  const result = matchRequirement(requirement('Python'), []);
+  assert.deepStrictEqual(result, { requirementId: 'req_001', status: 'unsupported', score: 0, evidenceIds: [], reasons: [] });
+});
+
+test('explicit aliases match without broad technology equivalence', () => {
+  const result = matchRequirement(requirement('js', 'req_alias'), [evidenceItem({ id: 'ev_js', skills: ['JavaScript'], title: 'Web work', description: 'Built a web page.' })]);
+  assert.strictEqual(result.status, 'supported');
+  assert.strictEqual(result.requirementId, 'req_alias');
+  assert.deepStrictEqual(result.evidenceIds, ['ev_js']);
+});
+
+test('reasons only cite signals actually present in the selected evidence', () => {
+  const result = matchRequirement(requirement('Python'), [evidenceItem({ id: 'ev_skill', title: 'Service', description: 'Built an API.', skills: ['Python'] })]);
+  assert.strictEqual(result.reasons.length, 1);
+  assert.ok(result.reasons[0].includes('ev') === false);
+  assert.ok(result.reasons[0].includes('explicitly listed'));
+  assert.ok(!result.reasons[0].includes('description'));
+});
+
+console.log('\n  job analysis\n');
+
+const { parseJobDescription, normalizeRequirement, classifyRequirement, detectPriority } = require('./lib/jobParser');
+const http = require('http');
+
+function requestJson(baseUrl, pathname, options = {}) {
+  const url = new URL(pathname, baseUrl);
+  const body = options.body === undefined ? null : JSON.stringify(options.body);
+  return new Promise((resolve, reject) => {
+    const request = http.request(url, {
+      method: options.method || 'GET',
+      headers: body ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } : undefined
+    }, (response) => {
+      let raw = '';
+      response.on('data', (chunk) => { raw += chunk; });
+      response.on('end', () => resolve({
+        status: response.statusCode,
+        body: raw ? JSON.parse(raw) : null
+      }));
+    });
+    request.on('error', reject);
+    if (body) request.write(body);
+    request.end();
+  });
+}
+
+const jobDescriptionFixture = `We are looking for a software engineer.
+
+Requirements:
+- 2+ years of experience with Python and REST APIs
+- Strong knowledge of Git
+- Familiarity with Docker
+
+Nice to have:
+- AWS experience
+- Kubernetes`;
+
+test('job parser extracts Python, REST APIs, Git, and Docker requirements', () => {
+  const requirements = parseJobDescription(jobDescriptionFixture).requirements;
+  assert.deepStrictEqual(requirements.map((item) => item.skill), ['Python', 'REST APIs', 'Git', 'Docker', 'AWS', 'Kubernetes']);
+  assert.strictEqual(requirements[0].category, 'programming_language');
+  assert.strictEqual(requirements[1].category, 'technical_skill');
+  assert.strictEqual(requirements[2].category, 'tool');
+});
+
+test('job parser detects required and preferred priorities', () => {
+  const requirements = parseJobDescription(jobDescriptionFixture).requirements;
+  assert.strictEqual(requirements.find((item) => item.skill === 'Python').priority, 'required');
+  assert.strictEqual(requirements.find((item) => item.skill === 'AWS').priority, 'preferred');
+  assert.strictEqual(detectPriority('Docker is required.'), 'required');
+  assert.strictEqual(detectPriority('AWS is a nice to have.'), 'preferred');
+});
+
+test('job parser preserves source text and creates deterministic requirement IDs', () => {
+  const requirements = parseJobDescription(jobDescriptionFixture).requirements;
+  assert.strictEqual(requirements[0].id, 'req_001');
+  assert.strictEqual(requirements[1].id, 'req_002');
+  assert.strictEqual(requirements[0].sourceText, '2+ years of experience with Python and REST APIs');
+  assert.strictEqual(requirements[0].text, 'Python');
+  assert.strictEqual(requirements[1].text, 'REST APIs');
+});
+
+test('job parser deduplicates explicit skills and does not infer technologies', () => {
+  const parsed = parseJobDescription('- Python required\n- Experience with Python\n- Familiarity with cloud deployment').requirements;
+  assert.strictEqual(parsed.filter((item) => item.skill === 'Python').length, 1);
+  assert.ok(!parsed.some((item) => item.skill === 'AWS'));
+  assert.strictEqual(normalizeRequirement('  REST   APIs '), 'rest apis');
+  assert.strictEqual(classifyRequirement('Build software systems'), 'responsibility');
+});
+
+test('each explicit skill has specific text while retaining shared provenance', () => {
+  const sourceText = 'We are looking for a software engineer with Python, REST APIs, Git and Docker.';
+  const awsSourceText = 'AWS experience is preferred.';
+  const requirements = parseJobDescription(`${sourceText} ${awsSourceText}`).requirements;
+  const expectedSkills = ['Python', 'REST APIs', 'Git', 'Docker'];
+  expectedSkills.forEach((skill) => {
+    const item = requirements.find((requirement) => requirement.skill === skill);
+    assert.strictEqual(item.text, skill);
+    assert.strictEqual(item.sourceText, sourceText);
+  });
+  const aws = requirements.find((item) => item.skill === 'AWS');
+  assert.strictEqual(aws.text, 'AWS');
+  assert.strictEqual(aws.sourceText, awsSourceText);
+  assert.strictEqual(aws.priority, 'preferred');
+});
+
+test('non-skill experience requirements retain their meaningful full text', () => {
+  const sourceText = 'Minimum 2+ years of software engineering experience';
+  const requirement = parseJobDescription(`- ${sourceText}`).requirements[0];
+  assert.strictEqual(requirement.text, sourceText);
+  assert.strictEqual(requirement.skill, null);
+  assert.strictEqual(requirement.category, 'experience');
+});
+
+test('matching prioritizes requirement.skill and reasons name that specific requirement', () => {
+  const sourceText = 'We are looking for a software engineer with Python, REST APIs, Git and Docker.';
+  const result = matchRequirement({ id: 'req_specific', text: sourceText, skill: 'Python', sourceText }, [
+    evidenceItem({ id: 'ev_python', title: 'API work', description: 'Built services.', skills: ['Python'] })
+  ]);
+  assert.strictEqual(result.status, 'supported');
+  assert.deepStrictEqual(result.evidenceIds, ['ev_python']);
+  assert.ok(result.reasons.every((reason) => reason.includes('Python')));
+  assert.ok(result.reasons.every((reason) => !reason.includes(sourceText)));
+});
+
+test('analyze-job validates input and returns parsed requirements with evidence matches', async () => {
+  const { app } = require('./server');
+  const server = await new Promise((resolve) => {
+    const instance = app.listen(0, () => resolve(instance));
+  });
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+  let temporaryId;
+
+  try {
+    let response = await requestJson(baseUrl, '/api/analyze-job', { method: 'POST', body: { jobDescription: '   ' } });
+    assert.strictEqual(response.status, 400);
+    assert.strictEqual(response.body.error, 'Job description is required.');
+
+    response = await requestJson(baseUrl, '/api/analyze-job', { method: 'POST', body: { jobDescription: 42 } });
+    assert.strictEqual(response.status, 400);
+
+    response = await requestJson(baseUrl, '/api/evidence');
+    assert.strictEqual(response.status, 200);
+
+    response = await requestJson(baseUrl, '/api/evidence', {
+      method: 'POST', body: { title: 'Temporary Python evidence', type: 'project', description: 'Built a Python API.', skills: ['Python'] }
+    });
+    assert.strictEqual(response.status, 201);
+    const created = response.body;
+    temporaryId = created.id;
+
+    response = await requestJson(baseUrl, `/api/evidence/${temporaryId}`);
+    assert.strictEqual(response.status, 200);
+
+    response = await requestJson(baseUrl, `/api/evidence/${temporaryId}`, {
+      method: 'PUT', body: { title: 'Temporary Python evidence', type: 'project', description: 'Built a Python API.', skills: ['Python', 'REST APIs'] }
+    });
+    assert.strictEqual(response.status, 200);
+
+    const liveDescription = 'We are looking for a software engineer with Python, REST APIs, Git and Docker. AWS experience is preferred.';
+    response = await requestJson(baseUrl, '/api/analyze-job', { method: 'POST', body: { jobDescription: liveDescription } });
+    assert.strictEqual(response.status, 200);
+    const analysis = response.body;
+    assert.strictEqual(analysis.requirements.length, 5);
+    assert.strictEqual(analysis.matches.length, analysis.requirements.length);
+    assert.deepStrictEqual(analysis.requirements.map((item) => item.text), ['Python', 'REST APIs', 'Git', 'Docker', 'AWS']);
+    assert.strictEqual(analysis.requirements[0].sourceText, 'We are looking for a software engineer with Python, REST APIs, Git and Docker.');
+    assert.strictEqual(analysis.requirements[4].priority, 'preferred');
+    const pythonMatch = analysis.matches.find((match) => match.requirementId === analysis.requirements.find((item) => item.skill === 'Python').id);
+    assert.ok(pythonMatch.evidenceIds.includes(temporaryId));
+
+    response = await requestJson(baseUrl, `/api/evidence/${temporaryId}`, { method: 'DELETE' });
+    assert.strictEqual(response.status, 204);
+    temporaryId = null;
+    response = await requestJson(baseUrl, `/api/evidence/${created.id}`);
+    assert.strictEqual(response.status, 404);
+  } finally {
+    if (temporaryId) await requestJson(baseUrl, `/api/evidence/${temporaryId}`, { method: 'DELETE' });
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 // ── Summary ──
 
-const total = passed + failed;
-console.log(`\n  ${'─'.repeat(40)}`);
-console.log(`  Result: ${passed}/${total} passed`);
-if (failed > 0) {
-  console.log(`  ${failed} test(s) FAILED`);
-  process.exit(1);
-} else {
-  console.log('  All tests passed!');
+async function runTests() {
+  for (const { label, fn } of testCases) {
+    try {
+      await fn();
+      passed++;
+      console.log(`  ✓ ${label}`);
+    } catch (error) {
+      failed++;
+      console.log(`  ✗ ${label}`);
+      console.log(`      ${error.message}`);
+    }
+  }
+
+  const total = passed + failed;
+  console.log(`\n  ${'─'.repeat(40)}`);
+  console.log(`  Result: ${passed}/${total} passed`);
+  if (failed > 0) {
+    console.log(`  ${failed} test(s) FAILED`);
+    process.exitCode = 1;
+  } else {
+    console.log('  All tests passed!');
+  }
 }
+
+runTests();
