@@ -21,6 +21,17 @@ test.describe('Resume Intelligence critical workflow', () => {
     await expect(page.locator('.analysis-stale p')).toContainText('Resume changed');
   });
 
+  test('valid structured links render as anchors and unsafe URLs do not', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.nav-item[data-view="resume"]').click();
+    await page.locator('#structured-website').fill('https://example.com');
+    await page.locator('#structured-github').fill('javascript:alert(1)');
+    await page.locator('#structured-name').fill('Link Test');
+    await page.locator('#structured-summary').fill('Engineer');
+    await expect(page.locator('#preview a[href="https://example.com"]')).toHaveCount(1);
+    await expect(page.locator('#preview a[href^="javascript:"]')).toHaveCount(0);
+  });
+
   test('renders malicious input as text', async ({ page }) => {
     await page.goto('/');
     await page.locator('.nav-item[data-view="resume"]').click();

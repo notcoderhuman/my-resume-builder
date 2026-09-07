@@ -68,15 +68,37 @@ The browser suite covers loading, structured editing, refresh persistence, JD ba
 
 ## Optional AI configuration
 
-AI is disabled unless configured. Supported environment configuration is intentionally server-side only:
+AI is disabled unless configured. Provider configuration is intentionally server-side only.
 
-```text
-AI_PROVIDER=mock
-AI_API_KEY=...
-AI_MODEL=...
+### Local-first Ollama (recommended default)
+
+Install Ollama from the [official Ollama website](https://ollama.com/), start it, and pull the small recommended model:
+
+```bash
+ollama pull qwen2.5:3b
 ```
 
-The mock provider is useful for local UI testing. No API key is placed in browser code. AI output must pass strict validation, preserve source paths, require user verification, and cannot mutate the resume automatically.
+Configure the application:
+
+```text
+AI_PROVIDER=ollama
+AI_MODEL=qwen2.5:3b
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+```
+
+Ollama inference is local and does not require an API key. CPU-only systems are supported, although inference speed depends on the machine. Stronger hardware can manually configure a larger model such as `qwen2.5:7b`. The application never automatically downloads or starts a model.
+
+### Optional Gemini
+
+```text
+AI_PROVIDER=gemini
+AI_API_KEY=<secret>
+AI_MODEL=gemini-2.5-flash
+```
+
+`GEMINI_API_KEY` is also accepted as a fallback key name when `AI_PROVIDER=gemini`. The key must remain server-side and must never be committed, placed in `index.html`, or included in browser JavaScript.
+
+Use `AI_PROVIDER=mock` for local UI testing without a network call. If Ollama, Gemini, or the selected model is unavailable, the application remains usable and returns the deterministic baseline. AI output must pass strict validation, preserve source paths, require user verification, and cannot mutate the resume automatically.
 
 ## Security model
 

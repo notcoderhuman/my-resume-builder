@@ -23,6 +23,19 @@ app.use((request, response, next) => { response.set({ 'Content-Security-Policy':
 // older Evidence Vault static bundle available for its existing routes.
 app.use(express.static(__dirname, { index: false }));
 app.get('/', (request, response) => response.sendFile(path.join(__dirname, 'index.html')));
+app.get('/api/ai-status', async (request, response) => {
+  const provider = process.env.AI_PROVIDER || '';
+  const model = process.env.AI_MODEL || (provider === 'ollama' ? 'qwen2.5:3b' : '');
+  if (provider !== 'ollama') return response.json({ provider, model, available: false, reason: 'provider-not-ollama' });
+  const baseUrl = process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434';
+  try {
+    const parsed = new URL(baseUrl); if (parsed.protocol !== 'http:' || !['127.0.0.1', 'localhost', '::1'].includes(parsed.hostname.toLowerCase())) throw new Error('invalid-local-endpoint');
+    const tags = await fetch(`${baseUrl.replace(/\/$/, '')}/api/tags`, { signal: AbortSignal.timeout(2500) });
+    if (!tags.ok) return response.json({ provider, model, available: false, reason: 'ollama-unavailable' });
+    const data = await tags.json(); const models = Array.isArray(data.models) ? data.models.map((item) => item && item.name).filter(Boolean) : [];
+    response.json({ provider, model, available: models.includes(model), reachable: true, modelConfigured: models.includes(model) });
+  } catch (_) { response.json({ provider, model, available: false, reachable: false, modelConfigured: false, reason: 'ollama-unavailable' }); }
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 function sendStorageError(response, error) {

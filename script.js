@@ -49,6 +49,8 @@ let currentSkillGapResult = null;
 let currentAnalysisFingerprint = '';
 let currentJobDescriptionModel = null;
 let currentAIInsights = null;
+let currentAIStatus = { provider: '', available: false, model: '' };
+function renderAIAvailability() { const box = document.getElementById('ai-insights-result'); const badge = document.getElementById('ai-status'); if (!box || !badge) return; if (currentAIStatus.available) { badge.textContent = `LOCAL AI AVAILABLE · ${currentAIStatus.model}`; box.querySelector('.ai-insights-panel p')?.replaceChildren(document.createTextNode('Advisory only. Deterministic baseline remains the source of truth.')); } else if (currentAIStatus.provider === 'ollama') { badge.textContent = 'LOCAL AI NOT AVAILABLE · DETERMINISTIC BASELINE'; box.querySelector('.ai-insights-panel p')?.replaceChildren(document.createTextNode('Showing deterministic baseline results.')); } }
 function analysisFingerprint(resume, jobText) { return JSON.stringify({ resume: normalizeResume(resume || createDefaultResume()), jobText: String(jobText || '') }); }
 function invalidateAnalysis(reason) {
   if (!currentMatchResult && !currentSkillGapResult) return;
@@ -85,13 +87,13 @@ function renderMatchResult(result, container) {
   container.innerHTML = `<div class="match-result-header"><div class="match-score">${result.summary.scorePercent}%<small>deterministic baseline</small></div><div><div class="match-summary"><span><strong>${result.summary.required.supported}</strong>required supported</span><span><strong>${result.summary.required.partial}</strong>required partial</span><span><strong>${result.summary.preferred.supported}</strong>preferred supported</span><span><strong>${result.summary.required.notDemonstrated + result.summary.preferred.notDemonstrated}</strong>not demonstrated</span></div><p class="job-result-note">Based on evidence currently present in your resume. This is not an AI score or guarantee.</p></div></div><div class="match-list">${items || '<div class="empty-panel panel"><p>No requirements were found in this job description.</p></div>'}</div>`;
 }
 async function requestAIInsights() {
-  const box = document.getElementById('ai-insights-result'); const jdText = document.getElementById('job-description')?.value || '';
+  const box = document.getElementById('ai-insights-result'); const jdText = document.getElementById('job-description')?.value || ' ';
   if (!box || !currentMatchResult || !jdText.trim()) return;
   box.innerHTML = '<div class="ai-insights-panel"><h3>Optional AI-enhanced insight</h3><p role="status">Requesting advisory insights…</p></div>';
   try {
     const parsedResponse = await fetch('/api/parse-job-description', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobDescription: jdText }) });
     if (!parsedResponse.ok) throw new Error('Baseline JD analysis failed.');
-    const jobDescription = (await parsedResponse.json()).jobDescription;
+    const jobDescription = await parsedResponse.json();
     const matchResponse = await fetch('/api/match-resume-job', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resume: currentResume, jobDescription }) });
     if (!matchResponse.ok) throw new Error('Deterministic match could not be verified.');
     const matchResult = (await matchResponse.json()).matchResult;
@@ -666,10 +668,12 @@ function buildLinks(data) {
 function buildStructuredEntriesHtml(entries) {
   return entries.map((entry) => {
     const bullets = entry.bullets.map((bullet) => `<p>• ${escapeHtml(bullet)}</p>`).join('');
+    const link = sanitizeUrl(entry.url); const linkHtml = link ? `<p class="resume-entry-link"><a href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(link)}</a></p>` : '';
     return `
       <div class="experience-entry">
         <div class="experience-role">${escapeHtml(entry.main)}</div>
         ${entry.meta ? `<div class="experience-date">${escapeHtml(entry.meta)}</div>` : ''}
+        ${linkHtml}
         ${bullets}
       </div>
     `;
@@ -696,6 +700,7 @@ function buildProjectsHtml(entries) {
   return buildStructuredEntriesHtml(entries.map((entry) => ({
     main: entry.title,
     meta: entry.dateRange,
+    url: entry.url,
     bullets: entry.bullets.length ? entry.bullets : (entry.technologies.length ? [entry.technologies.join(', ')] : [])
   })));
 }
@@ -704,6 +709,7 @@ function buildCertificationsHtml(entries) {
   return buildStructuredEntriesHtml(entries.map((entry) => ({
     main: [entry.name, entry.issuer].filter(Boolean).join(' - '),
     meta: entry.date,
+    url: entry.url,
     bullets: []
   })));
 }
@@ -1018,6 +1024,50 @@ function loadScript(src, timeoutMs) {
   });
 }
 
+function calculatePdfPageBreaks(previewEl, canvas, pagePixelHeight) {
+  const previewRect = previewEl.getBoundingClientRect();
+  const scale = previewRect.width ? canvas.width / previewRect.width : 1;
+  const candidates = new Set([0, canvas.height]);
+  previewEl.querySelectorAll('h2, .experience-entry').forEach((element) => {
+    const rect = element.getBoundingClientRect();
+    const top = Math.max(0, Math.round((rect.top - previewRect.top) * scale));
+    const bottom = Math.min(canvas.height, Math.round((rect.bottom - previewRect.top) * scale));
+    if (element.matches('h2')) candidates.add(top);
+    if (element.matches('.experience-entry')) candidates.add(bottom);
+  });
+  const sorted = [...candidates].sort((a, b) => a - b);
+  const breaks = [0]; let start = 0;
+  while (start < canvas.height) {
+    const target = Math.min(canvas.height, start + pagePixelHeight);
+    const eligible = sorted.filter((point) => point > start + 8 && point <= target);
+    let end = eligible.length ? eligible[eligible.length - 1] : target;
+    if (end <= start) end = Math.min(canvas.height, start + pagePixelHeight);
+    breaks.push(end); start = end;
+  }
+  return breaks;
+}
+function canvasSlice(canvas, top, height) {
+  const slice = document.createElement('canvas'); slice.width = canvas.width; slice.height = height;
+  const context = slice.getContext('2d'); context.drawImage(canvas, 0, top, canvas.width, height, 0, 0, canvas.width, height); return slice;
+}
+function addPdfLinkAnnotations(doc, previewEl, pageTop, pageBottom, previewRect, canvas, imgWidth, pageHeight) {
+  const scale = previewRect.width ? canvas.width / previewRect.width : 1;
+  const pdfScale = imgWidth / canvas.width;
+  previewEl.querySelectorAll('a[href]').forEach((link) => {
+    const url = sanitizeUrl(link.href || link.getAttribute('href'));
+    if (!url) return;
+    const rect = link.getBoundingClientRect();
+    const top = (rect.top - previewRect.top) * scale;
+    const bottom = (rect.bottom - previewRect.top) * scale;
+    const visibleTop = Math.max(top, pageTop); const visibleBottom = Math.min(bottom, pageBottom);
+    if (visibleBottom <= visibleTop) return;
+    const x = 10 + rect.left * scale * pdfScale;
+    const y = 10 + (visibleTop - pageTop) * pdfScale;
+    const width = Math.max(1, rect.width * scale * pdfScale);
+    const height = Math.max(1, (visibleBottom - visibleTop) * pdfScale);
+    doc.link(x, y, width, Math.min(height, pageHeight - 10 - y), { url });
+  });
+}
 async function printPDF() {
   const pdfBtn = document.getElementById('pdf-btn');
   const originalLabel = pdfBtn ? pdfBtn.textContent : '';
@@ -1043,24 +1093,20 @@ async function printPDF() {
 
     const { jsPDF } = window.jspdf;
     const canvas = await window.html2canvas(previewEl, { scale: 2, useCORS: true });
-    const imgData = canvas.toDataURL('image/png');
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const imgWidth = pageWidth - 20; // 10mm margins each side
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    let heightLeft = imgHeight;
-    let position = 10;
-
-    doc.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-    heightLeft -= (pageHeight - 20);
-
-    // Split into multiple pages if the resume is taller than one page.
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight + 10;
-      doc.addPage();
-      doc.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-      heightLeft -= (pageHeight - 20);
+    const imgWidth = pageWidth - 20;
+    const contentHeight = pageHeight - 20;
+    const pagePixelHeight = Math.max(1, Math.floor(canvas.width * contentHeight / imgWidth));
+    const breaks = calculatePdfPageBreaks(previewEl, canvas, pagePixelHeight);
+    const previewRect = previewEl.getBoundingClientRect();
+    for (let page = 0; page < breaks.length - 1; page += 1) {
+      if (page > 0) doc.addPage();
+      const slice = canvasSlice(canvas, breaks[page], breaks[page + 1] - breaks[page]);
+      const sliceHeight = slice.height * imgWidth / slice.width;
+      doc.addImage(slice.toDataURL('image/png'), 'PNG', 10, 10, imgWidth, sliceHeight);
+      addPdfLinkAnnotations(doc, previewEl, breaks[page], breaks[page + 1], previewRect, canvas, imgWidth, pageHeight);
     }
 
     doc.save('resume.pdf');
@@ -1165,6 +1211,7 @@ function init() {
   ['gap-status-filter', 'gap-importance-filter', 'gap-priority-filter'].forEach((id) => document.getElementById(id)?.addEventListener('change', () => { if (currentSkillGapResult) renderSkillGaps(currentSkillGapResult); }));
   document.getElementById('run-analysis')?.addEventListener('click', runBrowserBaselineMatch);
   document.getElementById('request-ai-insights')?.addEventListener('click', requestAIInsights);
+  fetch('/api/ai-status').then((response) => response.ok ? response.json() : null).then((status) => { if (!status) return; currentAIStatus = status; renderAIAvailability(); }).catch(() => {});
   document.querySelector('[data-reset-settings]')?.addEventListener('click', resetForm);
   const jobDescription = document.getElementById('job-description');
   const charCount = document.querySelector('.character-count');
