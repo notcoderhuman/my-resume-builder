@@ -6,12 +6,16 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests.js"
+    "test": "node tests.js",
+    "test:browser": "playwright test"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
     "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
   }
 }

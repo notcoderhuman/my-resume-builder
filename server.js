@@ -6,12 +6,23 @@ const path = require('path');
 const { readStore, writeStore, ensureStorage } = require('./lib/storage');
 const { validateEvidenceInput } = require('./lib/validation');
 const { parseJobDescription } = require('./lib/jobParser');
+const { parseJobDescription: parseStructuredJobDescription, validateJobDescription } = require('./lib/jobDescription');
 const { matchRequirement } = require('./lib/matching');
+const { matchResumeToJob, validateMatchInput } = require('./lib/matchingEngine');
+const { analyzeSkillGaps, validateSkillGapInput } = require('./lib/skillGaps');
+const { generateAIInsights, validateAIOutput } = require('./lib/aiIntelligence');
+const { verifyMatchTraceability } = require('./lib/integrity');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '100kb' }));
+app.disable('x-powered-by');
+app.use((request, response, next) => { response.set({ 'Content-Security-Policy': "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'", 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY' }); next(); });
+// The primary Resume Intelligence shell lives at the repository root; keep the
+// older Evidence Vault static bundle available for its existing routes.
+app.use(express.static(__dirname, { index: false }));
+app.get('/', (request, response) => response.sendFile(path.join(__dirname, 'index.html')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 function sendStorageError(response, error) {
@@ -97,6 +108,47 @@ app.delete('/api/evidence/:id', async (request, response) => {
   } catch (error) {
     sendStorageError(response, error);
   }
+});
+
+app.post('/api/match-resume-job', (request, response) => {
+  if (!request.body || typeof request.body !== 'object' || Array.isArray(request.body)) return response.status(400).json({ error: 'Request body must contain resume and jobDescription objects.' });
+  if (JSON.stringify(request.body).length > 500000) return response.status(413).json({ error: 'Match payload is too large.' });
+  const validation = validateMatchInput(request.body.resume, request.body.jobDescription);
+  if (!validation.valid) return response.status(400).json({ error: validation.errors.join(' ') });
+  try {
+    const matchResult = matchResumeToJob(request.body.resume, request.body.jobDescription);
+    const trace = verifyMatchTraceability(request.body.resume, request.body.jobDescription, matchResult);
+    if (!trace.valid) return response.status(400).json({ error: 'Generated match failed evidence integrity validation.' });
+    response.json({ matchResult });
+  } catch (error) { console.error('Matching failed:', error.message); response.status(400).json({ error: 'Unable to match the supplied resume and job description.' }); }
+});
+
+app.post('/api/skill-gaps', (request, response) => {
+  if (!request.body || typeof request.body !== 'object' || Array.isArray(request.body)) return response.status(400).json({ error: 'Request body must contain a matchResult object.' });
+  if (JSON.stringify(request.body).length > 500000) return response.status(413).json({ error: 'Skill-gap payload is too large.' });
+  const validation = validateSkillGapInput(request.body.matchResult);
+  if (!validation.valid) return response.status(400).json({ error: validation.errors.join(' ') });
+  try { response.json({ skillGapResult: analyzeSkillGaps(request.body.matchResult) }); } catch (error) { console.error(error); response.status(400).json({ error: 'Unable to analyze skill gaps.' }); }
+});
+
+app.post('/api/ai-insights', async (request, response) => {
+  if (!request.body || typeof request.body !== 'object' || Array.isArray(request.body)) return response.status(400).json({ error: 'Request body must contain structured analysis objects.' });
+  if (JSON.stringify(request.body).length > 500000) return response.status(413).json({ error: 'AI insights payload is too large.' });
+  const { resume, jobDescription, matchResult, skillGapResult } = request.body;
+  const matchingValidation = validateMatchInput(resume, jobDescription);
+  if (!matchingValidation.valid) return response.status(400).json({ error: matchingValidation.errors.join(' ') });
+  if (!matchResult || typeof matchResult !== 'object' || !Array.isArray(matchResult.matches)) return response.status(400).json({ error: 'matchResult must contain a matches array.' });
+  const trace = verifyMatchTraceability(resume, jobDescription, matchResult);
+  if (!trace.valid) return response.status(400).json({ error: 'matchResult failed evidence integrity validation.' });
+  try { response.json(await generateAIInsights({ resume, jobDescription, matchResult, skillGapResult })); } catch (error) { console.error('AI insights failed:', error.message); response.json({ mode: 'deterministic-fallback', insights: { version: 1, schemaVersion: 1, requirementInsights: [], matchExplanations: [], gapPriorities: [], resumeImprovements: [], warnings: [] }, quality: { source: 'deterministic', notes: 'AI unavailable. Deterministic results are preserved.' } }); }
+});
+
+app.post('/api/parse-job-description', (request, response) => {
+  if (!request.body || typeof request.body !== 'object' || Array.isArray(request.body) || typeof request.body.jobDescription !== 'string') return response.status(400).json({ error: 'Job description must be a string.' });
+  const source = request.body.jobDescription;
+  if (!source.trim()) return response.status(400).json({ error: 'Job description is required.' });
+  if (source.length > 100000) return response.status(413).json({ error: 'Job description is too large.' });
+  response.json(parseStructuredJobDescription(source));
 });
 
 app.post('/api/analyze-job', async (request, response) => {
