@@ -5,6 +5,7 @@
   "description": "Evidence Vault v0.1",
   "main": "server.js",
   "scripts": {
+    "dev": "npm start",
     "start": "node server.js",
     "test": "node tests.js",
     "test:browser": "playwright test"
