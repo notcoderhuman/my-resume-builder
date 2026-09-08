@@ -4,6 +4,11 @@ test.describe('Resume Intelligence critical workflow', () => {
   test('loads, edits resume, persists, analyzes, and invalidates stale results', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveTitle('Resume Intelligence');
+    await page.getByRole('button', { name: 'Resume Intelligence — Overview' }).click();
+    await expect(page.locator('#view-dashboard')).toHaveClass(/active/);
+    await page.getByRole('button', { name: 'Resume Intelligence — Overview' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#view-dashboard')).toHaveClass(/active/);
     await page.locator('.nav-item[data-view="resume"]').click();
     await page.locator('#structured-name').fill('QA Engineer');
     await page.reload();
@@ -11,7 +16,7 @@ test.describe('Resume Intelligence critical workflow', () => {
     await expect(page.locator('#structured-name')).toHaveValue('QA Engineer');
     await page.getByRole('button', { name: 'Job description' }).click();
     await page.locator('#job-description').fill('Requirements:\n- Python experience required');
-    await page.getByRole('button', { name: 'Overview' }).click();
+    await page.getByRole('button', { name: 'Overview', exact: true }).click()
     await page.getByRole('button', { name: 'Job description', exact: true }).click();
     await expect(page.locator('#job-description')).toHaveValue('Requirements:\n- Python experience required');
     await page.reload();
