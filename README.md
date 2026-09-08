@@ -4,7 +4,7 @@ Resume Intelligence is an evidence-grounded resume and job-description analysis 
 
 > **Make every claim defensible.**
 
-[GitHub repository](https://github.com/notcoderhuman/my-resume-builder)
+[GitHub repository](https://github.com/notcoderhuman/resume-intelligence)
 
 | | |
 | --- | --- |
@@ -158,14 +158,14 @@ Resume Intelligence currently runs locally. Follow the Quick Start guide below t
 
 <http://localhost:3000>
 
-Repository: <https://github.com/notcoderhuman/my-resume-builder>
+Repository: <https://github.com/notcoderhuman/resume-intelligence>
 
 ## Quick start
 
 ### Quick start in 60 seconds
 
 ```bash
-git clone https://github.com/notcoderhuman/my-resume-builder.git
+git clone https://github.com/notcoderhuman/resume-intelligence.git
 cd my-resume-builder
 npm install
 npm start
@@ -184,7 +184,7 @@ Open <http://localhost:3000>.
 Open PowerShell, Terminal, or a similar shell:
 
 ```bash
-git clone https://github.com/notcoderhuman/my-resume-builder.git
+git clone https://github.com/notcoderhuman/resume-intelligence.git
 cd my-resume-builder
 npm install
 npm start
