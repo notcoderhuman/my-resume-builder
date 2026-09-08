@@ -6,11 +6,40 @@
   <meta name="description" content="Resume Intelligence — evidence-grounded career intelligence.">
   <title>Resume Intelligence</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <style id="v0-visual-overrides">
+    :root { color-scheme: light; --bg: #eef3f9; --ink: #172c4d; --muted: #65748a; --accent: #2467d8; --line: rgba(23,44,77,.09); --line-dark: rgba(23,44,77,.17); }
+    body { background: radial-gradient(600px 420px at 12% 8%, rgba(213,231,249,.34), transparent 72%), radial-gradient(700px 500px at 88% 18%, rgba(255,255,255,.72), transparent 70%), #eef3f9; color: var(--ink); }
+    .app-shell { display: block; min-height: 100vh; padding-bottom: 108px; }
+    .sidebar { position: fixed; z-index: 30; left: 50%; bottom: 22px; width: min(calc(100% - 32px), 820px); height: auto; min-height: 70px; transform: translateX(-50%); display: flex; align-items: center; padding: 8px 10px; background: rgba(255,255,255,.34); color: var(--ink); border: 1px solid rgba(255,255,255,.78); border-radius: 24px; box-shadow: 0 18px 48px rgba(32,63,95,.2), inset 0 1px rgba(255,255,255,.72), inset 0 -1px rgba(104,139,174,.12); backdrop-filter: blur(30px) saturate(170%); -webkit-backdrop-filter: blur(30px) saturate(170%); }
+    .brand, .workspace-label, .privacy-mini { display: none; }
+    .nav-list { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 5px; }
+    .nav-item { position: relative; min-width: 68px; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 9px 5px; border: 0; border-radius: 17px; color: #687a8e; background: transparent; text-align: center; font-size: 10px; font-weight: 650; transition: background 220ms ease, color 220ms ease, transform 220ms ease, box-shadow 220ms ease; }
+    .nav-item:hover { color: #24486f; background: rgba(232,240,249,.42); transform: translateY(-2px); }
+    .nav-item:active { transform: translateY(0) scale(.97); }
+    .nav-item.active { color: #f8fbff; background: linear-gradient(145deg, rgba(72,139,207,.56), rgba(29,91,157,.42)); border: 1px solid rgba(224,243,255,.52); box-shadow: 0 10px 24px rgba(37,99,235,.2), inset 0 1px rgba(255,255,255,.58), inset 0 -1px rgba(18,64,113,.18); backdrop-filter: blur(18px) saturate(170%); -webkit-backdrop-filter: blur(18px) saturate(170%); transform: translateY(-5px); }
+    .nav-icon { width: 24px; height: 24px; display: grid; place-items: center; color: inherit; font-size: 16px; line-height: 1; }
+    .main-content { width: min(1320px,100%); margin: 0 auto; padding: 16px 34px 72px 30px; }
+    .topbar { height: 64px; background: rgba(255,255,255,.34); border-bottom-color: rgba(255,255,255,.72); backdrop-filter: blur(20px) saturate(145%); -webkit-backdrop-filter: blur(20px) saturate(145%); }
+    .view { max-width: 1180px; padding-top: 42px; padding-bottom: 120px; }
+    .page-heading h1 { color: #172c4d; font-weight: 650; }
+    .page-heading h1 em { color: #2467d8; }
+    .panel, .match-result-header, .match-item, .evidence-record, .skill-gap-record, .ai-insights-panel, .settings-list { background: linear-gradient(165deg, rgba(255,255,255,.30), rgba(255,255,255,.14)), rgba(255,255,255,.42); border-color: rgba(255,255,255,.72); box-shadow: inset 0 1px rgba(255,255,255,.82), 0 12px 40px rgba(23,44,77,.06); backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); }
+    .button.primary { background: #2467d8; box-shadow: inset 0 1px rgba(255,255,255,.22), 0 5px 16px rgba(36,103,216,.16); }
+    input, textarea, select { background: rgba(255,255,255,.70); border-color: rgba(23,44,77,.17); border-radius: 9px; }
+    .preview-card, #preview { background: #fff; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: 0 15px 35px rgba(23,44,77,.075); }
+    .match-result-header { padding: 30px 34px; border-radius: 22px; }
+    .match-score { font-size: 64px; color: #2467d8; }
+    .match-item, .evidence-record, .skill-gap-record { border-radius: 18px; padding: 22px 26px; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline-color: #2467d8; }
+    @media (max-width:700px) { .app-shell { padding-bottom: 96px; } .main-content { padding: 14px 14px 55px; } .sidebar { bottom: 12px; width: calc(100% - 20px); padding: 7px 6px; border-radius: 20px; } .nav-list { gap: 2px; overflow-x: auto; scrollbar-width: none; } .nav-list::-webkit-scrollbar { display: none; } .nav-item { min-width: 76px; flex: 0 0 76px; padding: 8px 3px; font-size: 9px; } .nav-icon { width: 22px; height: 22px; font-size: 15px; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+  </style>
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar" aria-label="Primary navigation">
-      <div class="brand"><span class="brand-mark" aria-hidden="true">RI</span><span>Resume<br><strong>Intelligence</strong></span></div>
+      <div class="brand"><img class="brand-logo" src="assets/logo.png" alt="Resume Intelligence"><span>Resume<br><strong>Intelligence</strong></span></div>
       <div class="workspace-label">WORKSPACE</div>
       <nav class="nav-list">
         <button class="nav-item active" data-view="dashboard"><span class="nav-icon">⌂</span>Overview</button>
@@ -51,7 +80,7 @@
 
       <section class="view" id="view-gaps" aria-labelledby="gaps-title"><div class="page-heading compact"><div><p class="eyebrow">SKILL GAPS / HONEST IMPROVEMENT</p><h1 id="gaps-title">What to strengthen.</h1><p class="lede">Separate demonstrated evidence from partial and not-demonstrated requirements.</p></div></div><div class="gap-summary panel"><span><strong id="gap-required-count">0</strong>required gaps</span><span><strong id="gap-preferred-count">0</strong>preferred gaps</span><span><strong id="gap-demonstrated-count">0</strong>demonstrated</span></div><div class="gap-filters panel"><label>Status<select id="gap-status-filter"><option value="">All</option><option value="partial">Partial</option><option value="not-demonstrated">Not demonstrated</option></select></label><label>Importance<select id="gap-importance-filter"><option value="">All</option><option value="required">Required</option><option value="preferred">Preferred</option></select></label><label>Priority<select id="gap-priority-filter"><option value="">All</option><option value="high">High priority</option><option value="medium">Medium priority</option></select></label></div><div id="skill-gap-records" class="skill-gap-records"><div class="gap-empty panel">Run a match to see evidence-grounded improvement guidance.</div></div><div class="callout"><strong>Improve honestly.</strong><span>Recommendations never ask you to claim unsupported skills. Build or document genuine evidence first.</span></div></section>
 
-      <section class="view" id="view-settings" aria-labelledby="settings-title"><div class="page-heading compact"><div><p class="eyebrow">SETTINGS / TRUST</p><h1 id="settings-title">Your workspace.</h1><p class="lede">Understand where your resume data lives and control it.</p></div></div><div class="settings-list panel"><div class="setting-row"><div><span class="setting-icon">⌂</span><div><h2>Storage location</h2><p>Resume content is currently stored in this browser’s local storage.</p></div></div><span class="badge supported-badge">Local only</span></div><div class="setting-row"><div><span class="setting-icon">↗</span><div><h2>AI analysis</h2><p>No AI analysis or network request is active in this foundation build.</p></div></div><span class="badge neutral">Not enabled</span></div><div class="setting-row"><div><span class="setting-icon">⌫</span><div><h2>Delete workspace data</h2><p>Reset your resume and clear locally stored content from this browser.</p></div></div><button class="button ghost danger" data-reset-settings>Reset data</button></div></div></section>
+      <section class="view" id="view-settings" aria-labelledby="settings-title"><div class="page-heading compact"><div><p class="eyebrow">SETTINGS / TRUST</p><h1 id="settings-title">Your workspace.</h1><p class="lede">Understand where your resume data lives and control it.</p></div></div><div class="settings-list panel"><div class="setting-row"><div><span class="setting-icon">⌂</span><div><h2>Storage location</h2><p>Resume content is currently stored in this browser’s local storage.</p></div></div><span class="badge supported-badge">Local only</span></div><div class="setting-row"><div><span class="setting-icon">↗</span><div><h2>AI analysis</h2><p>Deterministic analysis is the authoritative baseline. Optional AI insights depend on the configured provider and are advisory only.</p></div></div><span class="badge neutral">Not enabled</span></div><div class="setting-row"><div><span class="setting-icon">⌫</span><div><h2>Delete workspace data</h2><p>Reset your resume and clear locally stored content from this browser.</p></div></div><button class="button ghost danger" data-reset-settings>Reset data</button></div></div></section>
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>

@@ -192,7 +192,7 @@ app.use((error, request, response, next) => {
 
 function startServer() {
   return ensureStorage()
-    .then(() => app.listen(port, () => console.log(`Liquid Evidence is running at http://localhost:${port}`)));
+    .then(() => app.listen(port, () => console.log(`Resume Intelligence is running at http://localhost:${port}`)));
 }
 
 if (require.main === module) {
