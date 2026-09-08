@@ -11,6 +11,12 @@ test.describe('Resume Intelligence critical workflow', () => {
     await expect(page.locator('#structured-name')).toHaveValue('QA Engineer');
     await page.getByRole('button', { name: 'Job description' }).click();
     await page.locator('#job-description').fill('Requirements:\n- Python experience required');
+    await page.getByRole('button', { name: 'Overview' }).click();
+    await page.getByRole('button', { name: 'Job description', exact: true }).click();
+    await expect(page.locator('#job-description')).toHaveValue('Requirements:\n- Python experience required');
+    await page.reload();
+    await page.getByRole('button', { name: 'Job description', exact: true }).click();
+    await expect(page.locator('#job-description')).toHaveValue('Requirements:\n- Python experience required');
     await page.getByRole('button', { name: /Run baseline analysis/ }).click();
     await expect(page.locator('#job-analysis-result').getByRole('heading', { name: 'Baseline analysis' })).toBeVisible();
     await page.getByRole('button', { name: 'Match analysis' }).click();

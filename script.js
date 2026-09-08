@@ -620,6 +620,34 @@ function removeFromStorage() {
   }
 }
 
+const JOB_DESCRIPTION_STORAGE_KEY = 'jobDescriptionData';
+
+function saveJobDescriptionState(text, model = currentJobDescriptionModel) {
+  const state = { text: String(text || ''), model: model || null };
+  memoryData.jobDescription = state;
+  if (!isStorageAvailable()) return false;
+  try {
+    if (!state.text.trim()) window.localStorage.removeItem(JOB_DESCRIPTION_STORAGE_KEY);
+    else window.localStorage.setItem(JOB_DESCRIPTION_STORAGE_KEY, JSON.stringify(state));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function loadJobDescriptionState() {
+  if (!isStorageAvailable()) return memoryData.jobDescription || { text: '', model: null };
+  try {
+    const raw = window.localStorage.getItem(JOB_DESCRIPTION_STORAGE_KEY);
+    if (!raw) return { text: '', model: null };
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return { text: '', model: null };
+    return { text: typeof parsed.text === 'string' ? parsed.text : '', model: parsed.model && typeof parsed.model === 'object' ? parsed.model : null };
+  } catch (e) {
+    return { text: '', model: null };
+  }
+}
+
 /* ------------------------------------------------------------
    4. PREVIEW RENDERING
    ------------------------------------------------------------ */
@@ -1132,6 +1160,10 @@ function resetForm() {
     currentResume = createDefaultResume();
     populateFormFromResume(currentResume);
     removeFromStorage();
+    saveJobDescriptionState('');
+    currentJobDescriptionModel = null;
+    const jobField = document.getElementById('job-description');
+    if (jobField) jobField.value = '';
     renderResume(currentResume);
     updateValidationUI(getFormValidationData());
     renderStructuredEditor(currentResume);
@@ -1215,13 +1247,13 @@ function init() {
   document.querySelector('[data-reset-settings]')?.addEventListener('click', resetForm);
   const jobDescription = document.getElementById('job-description');
   const charCount = document.querySelector('.character-count');
-  jobDescription?.addEventListener('input', () => { if (currentMatchResult) invalidateAnalysis('Job description changed — analysis needs to be refreshed.'); if (charCount) charCount.textContent = `${jobDescription.value.length.toLocaleString()} / 100,000`; });
+  jobDescription?.addEventListener('input', () => { if (currentMatchResult) invalidateAnalysis('Job description changed — analysis needs to be refreshed.'); currentJobDescriptionModel = null; saveJobDescriptionState(jobDescription.value); if (charCount) charCount.textContent = `${jobDescription.value.length.toLocaleString()} / 100,000`; });
   document.getElementById('analyze-job-description')?.addEventListener('click', () => {
     const result = document.getElementById('job-analysis-result');
     const source = jobDescription?.value || '';
     if (!source.trim()) { if (result) result.innerHTML = '<p class="job-result-note">Paste a job description to run a baseline analysis.</p>'; return; }
     if (source.length > 100000) { if (result) result.innerHTML = '<p class="job-result-note">This job description is too large. Keep it under 100,000 characters.</p>'; return; }
-    const parsed = parseJobDescriptionBaseline(source); currentJobDescriptionModel = parsed;
+    const parsed = parseJobDescriptionBaseline(source); currentJobDescriptionModel = parsed; saveJobDescriptionState(source, parsed);
     if (result) {
       const requirementItems = parsed.requirements.map((item) => `<li><span>${escapeHtml(item.name)}</span><small>${escapeHtml(item.importance)} · ${escapeHtml(item.sourceText)}</small></li>`).join('');
       result.innerHTML = `<h3>Baseline analysis <span class="badge neutral">Deterministic</span></h3><div class="job-result-grid"><div><strong>Requirements</strong><ul class="job-result-list">${requirementItems || '<li><span>No requirements found</span></li>'}</ul></div><div><strong>Sections detected</strong><ul class="job-result-list"><li><span>Responsibilities</span><small>${parsed.responsibilities.length}</small></li><li><span>Qualifications</span><small>${parsed.qualifications.length}</small></li><li><span>Required skills</span><small>${parsed.skills.required.length}</small></li><li><span>Preferred skills</span><small>${parsed.skills.preferred.length}</small></li></ul></div></div><p class="job-result-note">Source text is preserved for traceability. This is a lexical baseline, not semantic or AI analysis.</p>`;
@@ -1248,6 +1280,13 @@ function init() {
   currentResume = loadResume();
   populateFormFromResume(currentResume);
   renderStructuredEditor(currentResume);
+
+  const savedJobDescription = loadJobDescriptionState();
+  if (jobDescription) {
+    jobDescription.value = savedJobDescription.text;
+    if (charCount) charCount.textContent = `${jobDescription.value.length.toLocaleString()} / 100,000`;
+  }
+  currentJobDescriptionModel = savedJobDescription.model;
 
   // Bind action buttons.
   const copyBtn = document.getElementById('copy-btn');
