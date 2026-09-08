@@ -1,61 +1,563 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Resume Intelligence — evidence-grounded career intelligence.">
-  <title>Resume Intelligence</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <div class="app-shell">
-    <aside class="sidebar" aria-label="Primary navigation">
-      <div class="brand"><span class="brand-mark" aria-hidden="true">RI</span><span>Resume<br><strong>Intelligence</strong></span></div>
-      <div class="workspace-label">WORKSPACE</div>
-      <nav class="nav-list">
-        <button class="nav-item active" data-view="dashboard"><span class="nav-icon">⌂</span>Overview</button>
-        <button class="nav-item" data-view="resume"><span class="nav-icon">▤</span>Resume</button>
-        <button class="nav-item" data-view="job"><span class="nav-icon">⌁</span>Job description</button>
-        <button class="nav-item" data-view="analysis"><span class="nav-icon">◔</span>Match analysis</button>
-        <button class="nav-item" data-view="evidence"><span class="nav-icon">◇</span>Evidence</button>
-        <button class="nav-item" data-view="gaps"><span class="nav-icon">△</span>Skill gaps</button>
-      </nav>
-      <div class="sidebar-bottom">
-        <button class="nav-item" data-view="settings"><span class="nav-icon">⚙</span>Settings & privacy</button>
-        <div class="privacy-mini"><span class="status-dot"></span><div><strong>Local workspace</strong><small>Your data stays in this browser</small></div></div>
-      </div>
-    </aside>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Resume Intelligence — evidence-grounded career intelligence."
+    />
+    <meta name="theme-color" content="#eef3f9" />
+    <meta name="color-scheme" content="light" />
+    <title>Resume Intelligence</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <symbol id="icon-overview" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></symbol>
+      <symbol id="icon-resume" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></symbol>
+      <symbol id="icon-job" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12a20 20 0 0 0 18 0M12 12v3"/></symbol>
+      <symbol id="icon-analysis" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9v9Z"/><path d="M16 3.9a9 9 0 0 1 4.1 4.1H16Z"/></symbol>
+      <symbol id="icon-evidence" viewBox="0 0 24 24"><path d="m9 15 6-6M8 17l-1 1a4.2 4.2 0 0 1-6-6l4-4a4.2 4.2 0 0 1 6 0M16 7l1-1a4.2 4.2 0 0 1 6 6l-4 4a4.2 4.2 0 0 1-6 0" transform="translate(1 0) scale(.92)"/></symbol>
+      <symbol id="icon-gaps" viewBox="0 0 24 24"><path d="M4 20h16M6 16v-4M12 16V8M18 16V4"/></symbol>
+      <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/></symbol>
+      <symbol id="icon-shield" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z"/><path d="m8 12 3 3 5-6"/></symbol>
+      <symbol id="icon-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+      <symbol id="icon-chip" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3"/></symbol>
+    </svg>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Workspace dock">
+        <nav class="nav-list" aria-label="Primary navigation">
+          <span class="nav-bubble" aria-hidden="true"></span>
+          <button class="nav-item active" data-view="dashboard" aria-label="Overview" aria-current="page"><svg class="nav-icon" aria-hidden="true"><use href="#icon-overview"/></svg><span>Overview</span></button>
+          <button class="nav-item" data-view="resume" aria-label="Resume"><svg class="nav-icon" aria-hidden="true"><use href="#icon-resume"/></svg><span>Resume</span></button>
+          <button class="nav-item" data-view="job" aria-label="Job description"><svg class="nav-icon" aria-hidden="true"><use href="#icon-job"/></svg><span>Job description</span></button>
+          <button class="nav-item" data-view="analysis" aria-label="Match analysis"><svg class="nav-icon" aria-hidden="true"><use href="#icon-analysis"/></svg><span>Match analysis</span></button>
+          <button class="nav-item" data-view="evidence" aria-label="Evidence"><svg class="nav-icon" aria-hidden="true"><use href="#icon-evidence"/></svg><span>Evidence</span></button>
+          <button class="nav-item" data-view="gaps" aria-label="Skill gaps"><svg class="nav-icon" aria-hidden="true"><use href="#icon-gaps"/></svg><span>Skill gaps</span></button>
+          <button class="nav-item" data-view="settings" aria-label="Settings & privacy"><svg class="nav-icon" aria-hidden="true"><use href="#icon-settings"/></svg><span>Settings</span></button>
+        </nav>
+      </aside>
 
-    <main class="main-content">
-      <header class="topbar">
-        <button class="mobile-menu" id="mobile-menu" aria-label="Open navigation">☰</button>
-        <div class="breadcrumb"><span>Workspace</span><span>/</span><strong id="page-title">Overview</strong></div>
-        <div class="topbar-actions"><span class="save-state"><span class="status-dot"></span><span class="autosave">Saved locally</span></span><button class="avatar" aria-label="Account menu">AC</button></div>
-      </header>
+      <main class="main-content" id="main-content" tabindex="-1">
+        <header class="topbar">
+          <a class="brand" href="#" data-view="dashboard" aria-label="Resume Intelligence overview"><span class="brand-mark" aria-hidden="true">RI<span class="brand-mark-dot"></span></span><span>Resume <strong>Intelligence</strong></span></a>
+          <div class="topbar-actions">
+            <span class="save-state"><svg class="icon" aria-hidden="true"><use href="#icon-shield"/></svg><span class="autosave">Saved locally</span></span>
+            <span class="topbar-divider" aria-hidden="true"></span>
+            <button class="workspace-button" data-view="settings"><span class="status-dot"></span>Local workspace</button>
+          </div>
+        </header>
+        <div class="breadcrumb"><span>Workspace</span><span aria-hidden="true">/</span><strong id="page-title">Overview</strong></div>
 
-      <section class="view active" id="view-dashboard" aria-labelledby="dashboard-title">
-        <div class="page-heading"><div><p class="eyebrow">CAREER INTELLIGENCE / 01</p><h1 id="dashboard-title">Make every claim<br><em>defensible.</em></h1><p class="lede">Connect your resume to a target role and see what your evidence actually supports.</p></div><button class="button primary" data-view="analysis">Start an analysis <span>→</span></button></div>
-        <div class="analysis-intro panel"><div class="intro-item"><span class="step-number">01</span><div><strong>Your resume</strong><span id="resume-status">No resume content yet</span></div></div><div class="connector" aria-hidden="true">＋</div><div class="intro-item"><span class="step-number">02</span><div><strong>Job description</strong><span>No role added yet</span></div></div><div class="connector arrow" aria-hidden="true">→</div><div class="intro-action"><span class="step-number muted">03</span><div><strong>Evidence-grounded match</strong><span>Run analysis when ready</span></div><button class="button primary" data-view="analysis">Analyze match</button></div></div>
-        <div class="section-heading"><div><p class="eyebrow">WORKSPACE STATUS</p><h2>Ready when you are</h2></div><span class="badge neutral">No analysis yet</span></div>
-        <div class="empty-panel panel"><div class="empty-icon">◌</div><h3>Nothing is scored before it is supported.</h3><p>Add a resume and a job description to see matched requirements, partial matches, and what is not demonstrated. We will never invent a claim for you.</p><div class="empty-actions"><button class="button secondary" data-view="resume">Open resume</button><button class="button ghost" data-view="job">Add job description</button></div></div>
-        <div class="principles"><div><span class="principle-index">01</span><strong>Evidence first</strong><p>Every recommendation traces back to your resume.</p></div><div><span class="principle-index">02</span><strong>Honest gaps</strong><p>“Not demonstrated” is never treated as “missing.”</p></div><div><span class="principle-index">03</span><strong>Your data, visible</strong><p>Privacy controls are part of the workspace.</p></div></div>
-      </section>
+        <section
+          class="view active"
+          id="view-dashboard"
+          aria-labelledby="dashboard-title"
+        >
+          <div class="page-heading overview-heading">
+            <div>
+              <p class="eyebrow">YOUR NEXT CHAPTER, WITH CLARITY</p>
+              <h1 id="dashboard-title">Make every claim <em>defensible.</em></h1>
+              <p class="lede">Connect your experience to your next opportunity.</p>
+            </div>
+            <button class="button primary" data-view="analysis">Analyze match <svg class="icon" aria-hidden="true"><use href="#icon-arrow"/></svg></button>
+          </div>
+          <div class="overview-analysis panel">
+            <div class="overview-analysis-copy">
+              <div class="section-heading"><p class="eyebrow">MATCH ANALYSIS</p><span class="badge neutral" id="overview-analysis-status">Ready when you are</span></div>
+              <h2>Evidence before claims.</h2>
+              <p id="overview-analysis-description">Discover where your experience aligns, what needs context, and what you can strengthen.</p>
+              <div class="status-legend"><span class="legend-supported">Supported</span><span class="legend-partial">Partial</span><span class="legend-not-demonstrated">Not demonstrated</span></div>
+              <button class="text-button" data-view="analysis">Explore your match <svg class="icon" aria-hidden="true"><use href="#icon-arrow"/></svg></button>
+            </div>
+            <div class="overview-score-area"><div class="score-orbit"><span class="eyebrow">BASELINE MATCH</span><strong id="overview-score">—</strong><span id="overview-score-caption">Awaiting analysis</span></div><span class="score-footnote"><svg class="icon" aria-hidden="true"><use href="#icon-shield"/></svg>Deterministic. Not a prediction.</span></div>
+          </div>
+          <div class="analysis-intro" aria-label="Analysis workflow">
+            <button class="intro-item panel" data-view="resume"><span class="surface-icon"><svg class="icon" aria-hidden="true"><use href="#icon-resume"/></svg></span><span class="intro-copy"><strong>Your resume</strong><span id="resume-status">Add your experience</span></span><svg class="icon item-arrow" aria-hidden="true"><use href="#icon-arrow"/></svg></button>
+            <button class="intro-item panel" data-view="job"><span class="surface-icon"><svg class="icon" aria-hidden="true"><use href="#icon-job"/></svg></span><span class="intro-copy"><strong>Target role</strong><span id="job-status">Add a job description</span></span><svg class="icon item-arrow" aria-hidden="true"><use href="#icon-arrow"/></svg></button>
+            <button class="intro-item panel" data-view="evidence"><span class="surface-icon"><svg class="icon" aria-hidden="true"><use href="#icon-evidence"/></svg></span><span class="intro-copy"><strong>Your evidence</strong><span id="overview-evidence-status">Connect the dots</span></span><svg class="icon item-arrow" aria-hidden="true"><use href="#icon-arrow"/></svg></button>
+          </div>
+          <div class="principles">
+            <div><svg class="icon" aria-hidden="true"><use href="#icon-evidence"/></svg><div><strong>Every claim, connected.</strong><p>Trace each requirement back to your resume.</p></div></div>
+            <div><svg class="icon" aria-hidden="true"><use href="#icon-gaps"/></svg><div><strong>Room to grow, honestly.</strong><p>Build genuine evidence. Never invent it.</p></div></div>
+            <div><svg class="icon" aria-hidden="true"><use href="#icon-shield"/></svg><div><strong>Private by design.</strong><p>Your resume is saved in this browser.</p></div></div>
+          </div>
+        </section>
 
-      <section class="view" id="view-resume" aria-labelledby="resume-title"><div class="page-heading compact"><div><p class="eyebrow">RESUME / EDITOR</p><h1 id="resume-title">Your resume</h1><p class="lede">Build a clear record of the work you can stand behind.</p></div><div class="heading-actions"><button class="button secondary" id="copy-btn">Copy HTML</button><button class="button primary" id="pdf-btn">Export PDF</button></div></div><div class="editor-layout"><div class="editor-panel panel"><div class="editor-tabs"><button class="editor-tab active">Content</button><span class="autosave" aria-live="polite">Saved locally</span></div><div id="error-banner" class="error-banner" role="alert"></div><form id="resume-form" novalidate><div class="form-section-block"><div class="form-section-title"><span>01</span><div><h2>Identity</h2><p>How should people find you?</p></div></div><div class="form-grid"><div class="field full"><label for="name">Full name</label><input id="name" name="name" type="text" placeholder="Your name"></div><div class="field"><label for="role">Role / headline</label><input id="role" name="role" type="text" placeholder="e.g. Security engineering student"></div><div class="field"><label for="location">Location</label><input id="location" name="location" type="text" placeholder="City, Country"></div><div class="field"><label for="phone">Phone</label><input id="phone" name="phone" type="tel" placeholder="+1 555 000 0000"></div><div class="field"><label for="website">Website</label><input id="website" name="website" type="url" placeholder="https://your-site.com"></div><div class="field"><label for="linkedin">LinkedIn</label><input id="linkedin" name="linkedin" type="url" placeholder="https://linkedin.com/in/you"></div><div class="field"><label for="github">GitHub</label><input id="github" name="github" type="url" placeholder="https://github.com/you"></div></div></div><div class="form-section-block"><div class="form-section-title"><span>02</span><div><h2>Profile</h2><p>A concise, evidence-based introduction.</p></div></div><div class="field"><label for="summary">Summary</label><textarea id="summary" name="summary" placeholder="Write 2–4 lines about your strengths, impact, and the roles you want."></textarea></div><div class="field"><label for="skills">Skills <small>comma-separated</small></label><input id="skills" name="skills" type="text" placeholder="Python, Linux, JavaScript"></div></div><div class="form-section-block"><div class="form-section-title"><span>03</span><div><h2>Experience & work</h2><p>Use one entry per line. Separate details with <code>|</code>.</p></div></div><div class="field"><label for="experience">Experience</label><textarea id="experience" name="experience" class="tall" placeholder="Company — Role | Dates | A result you can support | Another contribution"></textarea></div><div class="field"><label for="projects">Projects</label><textarea id="projects" name="projects" placeholder="Project name | Description | Technologies used"></textarea></div></div><div class="form-section-block"><div class="form-section-title"><span>04</span><div><h2>Education & credentials</h2><p>Keep the record complete and verifiable.</p></div></div><div class="field"><label for="education">Education</label><textarea id="education" name="education" placeholder="University — Degree | 2022–2026 | Relevant coursework"></textarea></div><div class="field"><label for="certifications">Certifications <small>optional</small></label><textarea id="certifications" name="certifications" placeholder="Certification — Issuer | Date"></textarea></div></div></form><div class="editor-footer"><span class="hint">Changes are stored locally in this browser.</span><button class="button ghost danger" id="reset-btn">Reset resume</button></div></div><div class="preview-wrap"><div class="preview-label"><span>LIVE PREVIEW</span><button class="icon-button" aria-label="Preview information">i</button></div><div id="preview" class="preview-card" aria-label="Resume preview"></div></div></div></section>
+        <section class="view" id="view-resume" aria-labelledby="resume-title">
+          <div class="page-heading compact">
+            <div>
+              <p class="eyebrow">RESUME / EDITOR</p>
+              <h1 id="resume-title">Your resume</h1>
+              <p class="lede">
+                Build a clear record of the work you can stand behind.
+              </p>
+            </div>
+            <div class="heading-actions">
+              <button class="button secondary" id="copy-btn">Copy HTML</button
+              ><button class="button primary" id="pdf-btn">Export PDF</button>
+            </div>
+          </div>
+          <div class="editor-layout">
+            <div class="editor-panel panel">
+              <div class="editor-tabs">
+                <button class="editor-tab active">Content</button
+                ><span class="autosave" aria-live="polite">Saved locally</span>
+              </div>
+              <div id="error-banner" class="error-banner" role="alert"></div>
+              <form id="resume-form" novalidate>
+                <div class="form-section-block">
+                  <div class="form-section-title">
+                    <span>01</span>
+                    <div>
+                      <h2>Identity</h2>
+                      <p>How should people find you?</p>
+                    </div>
+                  </div>
+                  <div class="form-grid">
+                    <div class="field full">
+                      <label for="name">Full name</label
+                      ><input
+                        id="name"
+                        name="name"
+                        type="text"
+                        placeholder="Your name"
+                      />
+                    </div>
+                    <div class="field">
+                      <label for="role">Role / headline</label
+                      ><input
+                        id="role"
+                        name="role"
+                        type="text"
+                        placeholder="e.g. Security engineering student"
+                      />
+                    </div>
+                    <div class="field">
+                      <label for="location">Location</label
+                      ><input
+                        id="location"
+                        name="location"
+                        type="text"
+                        placeholder="City, Country"
+                      />
+                    </div>
+                    <div class="field">
+                      <label for="phone">Phone</label
+                      ><input
+                        id="phone"
+                        name="phone"
+                        type="tel"
+                        placeholder="+1 555 000 0000"
+                      />
+                    </div>
+                    <div class="field">
+                      <label for="website">Website</label
+                      ><input
+                        id="website"
+                        name="website"
+                        type="url"
+                        placeholder="https://your-site.com"
+                      />
+                    </div>
+                    <div class="field">
+                      <label for="linkedin">LinkedIn</label
+                      ><input
+                        id="linkedin"
+                        name="linkedin"
+                        type="url"
+                        placeholder="https://linkedin.com/in/you"
+                      />
+                    </div>
+                    <div class="field">
+                      <label for="github">GitHub</label
+                      ><input
+                        id="github"
+                        name="github"
+                        type="url"
+                        placeholder="https://github.com/you"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div class="form-section-block">
+                  <div class="form-section-title">
+                    <span>02</span>
+                    <div>
+                      <h2>Profile</h2>
+                      <p>A concise, evidence-based introduction.</p>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label for="summary">Summary</label
+                    ><textarea
+                      id="summary"
+                      name="summary"
+                      placeholder="Write 2–4 lines about your strengths, impact, and the roles you want."
+                    ></textarea>
+                  </div>
+                  <div class="field">
+                    <label for="skills"
+                      >Skills <small>comma-separated</small></label
+                    ><input
+                      id="skills"
+                      name="skills"
+                      type="text"
+                      placeholder="Python, Linux, JavaScript"
+                    />
+                  </div>
+                </div>
+                <div class="form-section-block">
+                  <div class="form-section-title">
+                    <span>03</span>
+                    <div>
+                      <h2>Experience & work</h2>
+                      <p>
+                        Use one entry per line. Separate details with
+                        <code>|</code>.
+                      </p>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label for="experience">Experience</label
+                    ><textarea
+                      id="experience"
+                      name="experience"
+                      class="tall"
+                      placeholder="Company — Role | Dates | A result you can support | Another contribution"
+                    ></textarea>
+                  </div>
+                  <div class="field">
+                    <label for="projects">Projects</label
+                    ><textarea
+                      id="projects"
+                      name="projects"
+                      placeholder="Project name | Description | Technologies used"
+                    ></textarea>
+                  </div>
+                </div>
+                <div class="form-section-block">
+                  <div class="form-section-title">
+                    <span>04</span>
+                    <div>
+                      <h2>Education & credentials</h2>
+                      <p>Keep the record complete and verifiable.</p>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label for="education">Education</label
+                    ><textarea
+                      id="education"
+                      name="education"
+                      placeholder="University — Degree | 2022–2026 | Relevant coursework"
+                    ></textarea>
+                  </div>
+                  <div class="field">
+                    <label for="certifications"
+                      >Certifications <small>optional</small></label
+                    ><textarea
+                      id="certifications"
+                      name="certifications"
+                      placeholder="Certification — Issuer | Date"
+                    ></textarea>
+                  </div>
+                </div>
+              </form>
+              <div class="editor-footer">
+                <span class="hint"
+                  >Changes are stored locally in this browser.</span
+                ><button class="button ghost danger" id="reset-btn">
+                  Reset resume
+                </button>
+              </div>
+            </div>
+            <div class="preview-wrap">
+              <div class="preview-label">
+                <span>LIVE PREVIEW</span
+                ><button class="icon-button" aria-label="Preview information">
+                  i
+                </button>
+              </div>
+              <div
+                id="preview"
+                class="preview-card"
+                aria-label="Resume preview"
+              ></div>
+            </div>
+          </div>
+        </section>
 
-      <section class="view" id="view-job" aria-labelledby="job-title"><div class="page-heading compact"><div><p class="eyebrow">JOB DESCRIPTION / INPUT</p><h1 id="job-title">Target role</h1><p class="lede">Add the requirements you want to understand. Nothing is analyzed or sent anywhere yet.</p></div><span class="badge neutral">Draft</span></div><div class="job-layout"><div class="panel input-panel"><div class="panel-header"><div><p class="eyebrow">ROLE DETAILS</p><h2>Job description</h2></div><span class="character-count">0 / 100,000</span></div><label class="sr-only" for="job-description">Paste job description</label><textarea id="job-description" class="job-textarea" placeholder="Paste a job description here…"></textarea><div class="input-footer"><span>Tip: include the full requirements section for the clearest analysis.</span><button class="button primary" id="analyze-job-description">Run baseline analysis →</button></div><div id="job-analysis-result" class="job-analysis-result" aria-live="polite"></div></div><aside class="side-note"><span class="note-mark">◎</span><h3>Only compare what you can support.</h3><p>Resume Intelligence will separate strong evidence, partial evidence, and requirements that are not demonstrated in your resume.</p></aside></div></section>
+        <section class="view" id="view-job" aria-labelledby="job-title">
+          <div class="page-heading compact">
+            <div>
+              <p class="eyebrow">JOB DESCRIPTION / INPUT</p>
+              <h1 id="job-title">Target role</h1>
+              <p class="lede">
+                Add the requirements you want to understand. Nothing is analyzed
+                or sent anywhere yet.
+              </p>
+            </div>
+            <span class="badge neutral">Draft</span>
+          </div>
+          <div class="job-layout">
+            <div class="panel input-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">ROLE DETAILS</p>
+                  <h2>Job description</h2>
+                </div>
+                <span class="character-count">0 / 100,000</span>
+              </div>
+              <label class="sr-only" for="job-description"
+                >Paste job description</label
+              ><textarea
+                id="job-description"
+                class="job-textarea"
+                placeholder="Paste a job description here…"
+              ></textarea>
+              <div class="input-footer">
+                <span
+                  >Tip: include the full requirements section for the clearest
+                  analysis.</span
+                ><button class="button primary" id="analyze-job-description">
+                  Run baseline analysis →
+                </button>
+              </div>
+              <div
+                id="job-analysis-result"
+                class="job-analysis-result"
+                aria-live="polite"
+              ></div>
+            </div>
+            <aside class="side-note">
+              <span class="note-mark"><svg class="icon" aria-hidden="true"><use href="#icon-shield"/></svg></span>
+              <h3>Only compare what you can support.</h3>
+              <p>
+                Resume Intelligence will separate strong evidence, partial
+                evidence, and requirements that are not demonstrated in your
+                resume.
+              </p>
+            </aside>
+          </div>
+        </section>
 
-      <section class="view" id="view-analysis" aria-labelledby="analysis-title"><div class="page-heading compact"><div><p class="eyebrow">MATCH ANALYSIS / READY</p><h1 id="analysis-title">Evidence before claims.</h1><p class="lede">Your score appears only after a real analysis is connected to your documents.</p></div><div class="heading-actions"><span class="badge neutral" id="ai-status">AI not configured · deterministic baseline</span><button class="button primary" id="run-analysis">Analyze match</button></div></div><div id="match-analysis-result" class="match-analysis-result" aria-live="polite"><div class="analysis-empty panel"><div class="score-placeholder"><span>—</span><small>no score yet</small></div><div class="analysis-empty-copy"><span class="badge neutral">Awaiting inputs</span><h2>Run an analysis to see evidence-grounded matching.</h2><p>We need both a resume and a job description before we can compare requirements. This preview intentionally contains no sample score.</p><div class="input-checks"><span>○ Resume content</span><span>○ Job description</span></div></div></div></div><div class="analysis-skeleton"><div class="skeleton-line wide"></div><div class="skeleton-line"></div><div class="skeleton-line short"></div></div><div id="ai-insights-result" class="ai-insights-result" aria-live="polite"><div class="ai-insights-panel"><h3>Optional AI-enhanced insight</h3><p>AI is not configured. Deterministic baseline results remain the source of truth.</p><button type="button" class="button ghost" id="request-ai-insights">Request optional insight</button></div></div></section>
+        <section
+          class="view"
+          id="view-analysis"
+          aria-labelledby="analysis-title"
+        >
+          <div class="page-heading compact">
+            <div>
+              <p class="eyebrow">MATCH ANALYSIS</p>
+              <h1 id="analysis-title">Evidence before claims.</h1>
+              <p class="lede">A clear baseline. Every requirement connected to what your resume actually demonstrates.</p>
+            </div>
+            <div class="heading-actions">
+              <button class="button primary" id="run-analysis">Analyze match <svg class="icon" aria-hidden="true"><use href="#icon-arrow"/></svg></button>
+            </div>
+          </div>
+          <div
+            id="match-analysis-result"
+            class="match-analysis-result"
+            aria-live="polite"
+          >
+            <div class="analysis-empty panel">
+              <div class="score-placeholder"><p class="eyebrow">BASELINE MATCH</p><span>—</span><small>No score before evidence</small></div>
+              <div class="analysis-empty-copy">
+                <span class="badge neutral">Awaiting your documents</span>
+                <h2>Your experience is the starting point.</h2>
+                <p>Add your resume and a target job description to see the required and preferred breakdown. Nothing is scored until you run an analysis.</p>
+                <div class="input-checks"><button class="button ghost" data-view="resume">Open resume <svg class="icon" aria-hidden="true"><use href="#icon-arrow"/></svg></button><button class="button ghost" data-view="job">Add job description <svg class="icon" aria-hidden="true"><use href="#icon-arrow"/></svg></button></div>
+              </div>
+            </div>
+          </div>
+          <div class="local-ai-heading"><div><svg class="icon" aria-hidden="true"><use href="#icon-chip"/></svg><h2>LOCAL AI</h2><span class="badge neutral">Advisory only</span></div><span id="ai-status">QWEN2.5:3B · Not configured</span></div>
+          <div
+            id="ai-insights-result"
+            class="ai-insights-result"
+            aria-live="polite"
+          >
+            <div class="ai-insights-panel">
+              <h3>A second perspective. Not a second score.</h3>
+              <p>Run a baseline analysis to request optional insights. AI is not configured; your deterministic results remain the source of truth.</p>
+              <button type="button" class="button ghost" id="request-ai-insights" disabled>
+                Request optional insight
+              </button>
+            </div>
+          </div>
+        </section>
 
-      <section class="view" id="view-evidence" aria-labelledby="evidence-title"><div class="page-heading compact"><div><p class="eyebrow">EVIDENCE / TRACEABILITY</p><h1 id="evidence-title">Follow the source.</h1><p class="lede">Every claim stays connected to the exact requirement and resume text behind it.</p></div></div><div class="evidence-toolbar panel"><label for="evidence-status-filter">Status<select id="evidence-status-filter"><option value="">All</option><option value="supported">Supported</option><option value="partial">Partial</option><option value="not-demonstrated">Not demonstrated</option></select></label><label for="evidence-importance-filter">Importance<select id="evidence-importance-filter"><option value="">All</option><option value="required">Required</option><option value="preferred">Preferred</option></select></label><span id="evidence-count" class="badge neutral">No analysis yet</span></div><div id="evidence-records" class="evidence-records"><div class="evidence-empty panel"><div class="empty-icon">◇</div><h3>No evidence records yet.</h3><p>Run a deterministic baseline match to inspect the source behind each requirement.</p></div></div><div class="reverse-evidence panel"><div class="section-heading"><div><p class="eyebrow">REVERSE TRACEABILITY</p><h2>Resume evidence → supported requirements</h2></div></div><div id="reverse-evidence-records"><p class="job-result-note">No supporting mappings yet.</p></div></div></section>
+        <section
+          class="view"
+          id="view-evidence"
+          aria-labelledby="evidence-title"
+        >
+          <div class="page-heading compact">
+            <div>
+              <p class="eyebrow">EVIDENCE / TRACEABILITY</p>
+              <h1 id="evidence-title">Follow the source.</h1>
+              <p class="lede">
+                Every claim stays connected to the exact requirement and resume
+                text behind it.
+              </p>
+            </div>
+          </div>
+          <div class="evidence-toolbar panel">
+            <label for="evidence-status-filter"
+              >Status<select id="evidence-status-filter">
+                <option value="">All</option>
+                <option value="supported">Supported</option>
+                <option value="partial">Partial</option>
+                <option value="not-demonstrated">Not demonstrated</option>
+              </select></label
+            ><label for="evidence-importance-filter"
+              >Importance<select id="evidence-importance-filter">
+                <option value="">All</option>
+                <option value="required">Required</option>
+                <option value="preferred">Preferred</option>
+              </select></label
+            ><span id="evidence-count" class="badge neutral"
+              >No analysis yet</span
+            >
+          </div>
+          <div id="evidence-records" class="evidence-records">
+            <div class="evidence-empty panel">
+              <div class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#icon-evidence"/></svg></div>
+              <h3>No evidence records yet.</h3>
+              <p>
+                Run a deterministic baseline match to inspect the source behind
+                each requirement.
+              </p>
+            </div>
+          </div>
+          <div class="reverse-evidence panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">REVERSE TRACEABILITY</p>
+                <h2>Resume evidence → supported requirements</h2>
+              </div>
+            </div>
+            <div id="reverse-evidence-records">
+              <p class="job-result-note">No supporting mappings yet.</p>
+            </div>
+          </div>
+        </section>
 
-      <section class="view" id="view-gaps" aria-labelledby="gaps-title"><div class="page-heading compact"><div><p class="eyebrow">SKILL GAPS / HONEST IMPROVEMENT</p><h1 id="gaps-title">What to strengthen.</h1><p class="lede">Separate demonstrated evidence from partial and not-demonstrated requirements.</p></div></div><div class="gap-summary panel"><span><strong id="gap-required-count">0</strong>required gaps</span><span><strong id="gap-preferred-count">0</strong>preferred gaps</span><span><strong id="gap-demonstrated-count">0</strong>demonstrated</span></div><div class="gap-filters panel"><label>Status<select id="gap-status-filter"><option value="">All</option><option value="partial">Partial</option><option value="not-demonstrated">Not demonstrated</option></select></label><label>Importance<select id="gap-importance-filter"><option value="">All</option><option value="required">Required</option><option value="preferred">Preferred</option></select></label><label>Priority<select id="gap-priority-filter"><option value="">All</option><option value="high">High priority</option><option value="medium">Medium priority</option></select></label></div><div id="skill-gap-records" class="skill-gap-records"><div class="gap-empty panel">Run a match to see evidence-grounded improvement guidance.</div></div><div class="callout"><strong>Improve honestly.</strong><span>Recommendations never ask you to claim unsupported skills. Build or document genuine evidence first.</span></div></section>
+        <section class="view" id="view-gaps" aria-labelledby="gaps-title">
+          <div class="page-heading compact">
+            <div>
+              <p class="eyebrow">SKILL GAPS / HONEST IMPROVEMENT</p>
+              <h1 id="gaps-title">What to strengthen.</h1>
+              <p class="lede">
+                Separate demonstrated evidence from partial and not-demonstrated
+                requirements.
+              </p>
+            </div>
+          </div>
+          <div class="gap-summary panel">
+            <span><strong id="gap-required-count">0</strong>required gaps</span
+            ><span
+              ><strong id="gap-preferred-count">0</strong>preferred gaps</span
+            ><span
+              ><strong id="gap-demonstrated-count">0</strong>demonstrated</span
+            >
+          </div>
+          <div class="gap-filters panel">
+            <label
+              >Status<select id="gap-status-filter">
+                <option value="">All</option>
+                <option value="partial">Partial</option>
+                <option value="not-demonstrated">Not demonstrated</option>
+              </select></label
+            ><label
+              >Importance<select id="gap-importance-filter">
+                <option value="">All</option>
+                <option value="required">Required</option>
+                <option value="preferred">Preferred</option>
+              </select></label
+            ><label
+              >Priority<select id="gap-priority-filter">
+                <option value="">All</option>
+                <option value="high">High priority</option>
+                <option value="medium">Medium priority</option>
+              </select></label
+            >
+          </div>
+          <div id="skill-gap-records" class="skill-gap-records">
+            <div class="gap-empty panel">
+              Run a match to see evidence-grounded improvement guidance.
+            </div>
+          </div>
+          <div class="callout">
+            <strong>Improve honestly.</strong
+            ><span
+              >Recommendations never ask you to claim unsupported skills. Build
+              or document genuine evidence first.</span
+            >
+          </div>
+        </section>
 
-      <section class="view" id="view-settings" aria-labelledby="settings-title"><div class="page-heading compact"><div><p class="eyebrow">SETTINGS / TRUST</p><h1 id="settings-title">Your workspace.</h1><p class="lede">Understand where your resume data lives and control it.</p></div></div><div class="settings-list panel"><div class="setting-row"><div><span class="setting-icon">⌂</span><div><h2>Storage location</h2><p>Resume content is currently stored in this browser’s local storage.</p></div></div><span class="badge supported-badge">Local only</span></div><div class="setting-row"><div><span class="setting-icon">↗</span><div><h2>AI analysis</h2><p>No AI analysis or network request is active in this foundation build.</p></div></div><span class="badge neutral">Not enabled</span></div><div class="setting-row"><div><span class="setting-icon">⌫</span><div><h2>Delete workspace data</h2><p>Reset your resume and clear locally stored content from this browser.</p></div></div><button class="button ghost danger" data-reset-settings>Reset data</button></div></div></section>
-    </main>
-  </div>
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="script.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-</body>
+        <section
+          class="view"
+          id="view-settings"
+          aria-labelledby="settings-title"
+        >
+          <div class="page-heading compact">
+            <div>
+              <p class="eyebrow">SETTINGS / TRUST</p>
+              <h1 id="settings-title">Your workspace.</h1>
+              <p class="lede">
+                Understand where your resume data lives and control it.
+              </p>
+            </div>
+          </div>
+          <div class="settings-list panel">
+            <div class="setting-row">
+              <div>
+                <span class="setting-icon"><svg class="icon" aria-hidden="true"><use href="#icon-shield"/></svg></span>
+                <div>
+                  <h2>Storage location</h2>
+                  <p>
+                    Resume content is currently stored in this browser’s local
+                    storage.
+                  </p>
+                </div>
+              </div>
+              <span class="badge supported-badge">Local only</span>
+            </div>
+            <div class="setting-row">
+              <div>
+                <span class="setting-icon"><svg class="icon" aria-hidden="true"><use href="#icon-chip"/></svg></span>
+                <div>
+                  <h2>Local AI · advisory only</h2>
+                  <p>Optional insights send your documents to this app’s server. When configured, local Ollama provides advisory suggestions. Deterministic results remain unchanged.</p>
+                </div>
+              </div>
+              <span class="badge neutral" id="settings-ai-status">Not configured</span>
+            </div>
+            <div class="setting-row">
+              <div>
+                <span class="setting-icon"><svg class="icon" aria-hidden="true"><use href="#icon-settings"/></svg></span>
+                <div>
+                  <h2>Delete workspace data</h2>
+                  <p>
+                    Reset your resume and clear locally stored content from this
+                    browser.
+                  </p>
+                </div>
+              </div>
+              <button class="button ghost danger" data-reset-settings>
+                Reset data
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="script.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  </body>
 </html>

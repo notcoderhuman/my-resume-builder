@@ -50,7 +50,28 @@ let currentAnalysisFingerprint = '';
 let currentJobDescriptionModel = null;
 let currentAIInsights = null;
 let currentAIStatus = { provider: '', available: false, model: '' };
-function renderAIAvailability() { const box = document.getElementById('ai-insights-result'); const badge = document.getElementById('ai-status'); if (!box || !badge) return; if (currentAIStatus.available) { badge.textContent = `LOCAL AI AVAILABLE · ${currentAIStatus.model}`; box.querySelector('.ai-insights-panel p')?.replaceChildren(document.createTextNode('Advisory only. Deterministic baseline remains the source of truth.')); } else if (currentAIStatus.provider === 'ollama') { badge.textContent = 'LOCAL AI NOT AVAILABLE · DETERMINISTIC BASELINE'; box.querySelector('.ai-insights-panel p')?.replaceChildren(document.createTextNode('Showing deterministic baseline results.')); } }
+function renderOverviewStatus() {
+  const setText = (id, value) => { const element = document.getElementById(id); if (element) element.textContent = value; };
+  const hasResume = currentResume && (currentResume.personal?.name || buildResumeEvidenceIndexForBrowser(currentResume).length);
+  setText('resume-status', hasResume ? 'Resume ready to review' : 'Add your experience');
+  setText('job-status', document.getElementById('job-description')?.value.trim() ? 'Job description added' : 'Add a job description');
+  setText('overview-evidence-status', currentMatchResult ? `${currentMatchResult.matches.length} requirements traced` : 'Connect the dots');
+  setText('overview-score', currentMatchResult ? `${currentMatchResult.summary.scorePercent}%` : '—');
+  setText('overview-score-caption', currentMatchResult ? 'Deterministic baseline' : 'Awaiting analysis');
+  setText('overview-analysis-status', currentMatchResult ? 'Analysis complete' : 'Ready when you are');
+}
+function renderAIAvailability() {
+  const model = currentAIStatus.model || 'qwen2.5:3b';
+  const status = currentAIStatus.available ? 'Available' : currentAIStatus.provider === 'ollama' ? 'Unavailable' : 'Not configured';
+  const badge = document.getElementById('ai-status');
+  if (badge) badge.textContent = `${model.toUpperCase()} · ${status}`;
+  const settingsStatus = document.getElementById('settings-ai-status');
+  if (settingsStatus) settingsStatus.textContent = status;
+  const button = document.getElementById('request-ai-insights');
+  if (button) button.disabled = !currentMatchResult;
+  const description = document.querySelector('#ai-insights-result .ai-insights-panel p');
+  if (description && button) description.textContent = `${currentMatchResult ? '' : 'Run a baseline analysis to request optional insights. '}${currentAIStatus.available ? 'Local AI is available for advisory insights.' : currentAIStatus.provider === 'ollama' ? 'Local AI is currently unavailable.' : 'Local AI is not configured.'} Your deterministic results remain the source of truth.`;
+}
 function analysisFingerprint(resume, jobText) { return JSON.stringify({ resume: normalizeResume(resume || createDefaultResume()), jobText: String(jobText || '') }); }
 function invalidateAnalysis(reason) {
   if (!currentMatchResult && !currentSkillGapResult) return;
@@ -75,16 +96,28 @@ function renderEvidenceTraceability(result) {
   const statusFilter = document.getElementById('evidence-status-filter')?.value || ''; const importanceFilter = document.getElementById('evidence-importance-filter')?.value || '';
   const matches = result.matches.filter((m) => (!statusFilter || m.status === statusFilter) && (!importanceFilter || m.importance === importanceFilter));
   const count = document.getElementById('evidence-count'); if (count) count.textContent = `${matches.length} record${matches.length === 1 ? '' : 's'}`;
-  records.innerHTML = matches.length ? matches.map((match) => `<article class="evidence-record panel" id="evidence-${escapeHtml(match.requirementId)}"><div class="evidence-record-header"><div><h3>${escapeHtml(match.requirement)}</h3><span class="record-meta">${escapeHtml(match.importance)} · ${escapeHtml(match.category)} · confidence ${Math.round(match.confidence * 100)}%</span></div><span class="match-status ${escapeHtml(match.status)}">${escapeHtml(match.status)} · ${escapeHtml(match.matchType)}</span></div><div class="evidence-detail"><div><span class="eyebrow">JOB REQUIREMENT</span><div class="trace-text">“${escapeHtml(match.jdEvidence.sourceText || match.requirement)}”</div><span class="trace-path">${escapeHtml(match.jdEvidence.sourcePath)}</span></div><div><span class="eyebrow">YOUR EVIDENCE</span>${match.evidence.length ? match.evidence.map((item) => `<div class="trace-text"><span class="trace-path">${escapeHtml(item.sourcePath)}</span>“${escapeHtml(item.sourceText)}”</div>`).join('') : '<div class="trace-text">No supporting resume evidence was found in your current resume.</div>'}</div></div><p class="explanation"><strong>WHY</strong> ${escapeHtml(match.explanation.text)}</p></article>`).join('') : '<div class="evidence-empty panel"><p>No records match this filter.</p></div>';
+  records.innerHTML = matches.length ? matches.map((match) => `<article class="evidence-record panel" id="evidence-${escapeHtml(match.requirementId)}"><div class="evidence-record-header"><div><h3>${escapeHtml(match.requirement)}</h3><span class="record-meta">${escapeHtml(match.importance)} · ${escapeHtml(match.category)} · ${escapeHtml(match.matchType)} · confidence ${Math.round(match.confidence * 100)}%</span></div><span class="match-status ${escapeHtml(match.status)}">${escapeHtml(match.status.replaceAll('-', ' '))}</span></div><div class="evidence-detail"><div><span class="eyebrow">JOB REQUIREMENT</span><div class="trace-text">“${escapeHtml(match.jdEvidence.sourceText || match.requirement)}”</div><span class="trace-path">${escapeHtml(match.jdEvidence.sourcePath)}</span></div><div class="trace-arrow" aria-hidden="true"><svg class="icon"><use href="#icon-arrow"/></svg></div><div><span class="eyebrow">YOUR EVIDENCE</span>${match.evidence.length ? match.evidence.map((item) => `<div class="trace-text"><span class="trace-path">${escapeHtml(item.sourcePath)}</span>“${escapeHtml(item.sourceText)}”</div>`).join('') : '<div class="trace-text">No supporting resume evidence was found in your current resume.</div>'}</div></div><p class="explanation"><strong>WHY</strong> ${escapeHtml(match.explanation.text)}</p></article>`).join('') : '<div class="evidence-empty panel"><p>No records match this filter.</p></div>';
   if (reverse) { const grouped = new Map(); result.matches.forEach((match) => match.evidence.forEach((item) => { if (!grouped.has(item.sourcePath)) grouped.set(item.sourcePath, { ...item, supports: [] }); grouped.get(item.sourcePath).supports.push(match); })); reverse.innerHTML = grouped.size ? [...grouped.values()].map((item) => `<div class="reverse-record"><strong>${escapeHtml(item.sourcePath)}</strong><div>“${escapeHtml(item.sourceText)}”</div><span>Supports: ${item.supports.map((m) => escapeHtml(m.requirement)).join(' · ')}</span></div>`).join('') : '<p class="job-result-note">No supporting mappings yet.</p>'; }
 }
 function renderMatchResult(result, container) {
-  if (!container) return; const items = result.matches.map((match) => `<article class="match-item"><div class="match-item-top"><div><div class="match-item-name">${escapeHtml(match.requirement)}</div><div class="match-item-meta">${escapeHtml(match.importance)} · ${escapeHtml(match.category)}</div></div><span class="match-status ${escapeHtml(match.status)}">${escapeHtml(match.status)}</span></div>${match.evidence.length ? `<div class="match-evidence"><strong>Resume evidence</strong>${match.evidence.map((item) => `<div>${escapeHtml(item.sourcePath)} — ${escapeHtml(item.sourceText)}</div>`).join('')}</div>` : '<div class="match-evidence">No sufficient evidence found in the current resume.</div>'}</article>`).join('');
+  if (!container) return;
+  const items = result.matches.map((match, index) => `<article class="match-item">
+    <div class="match-item-top"><div><h3 class="match-item-name">${escapeHtml(match.requirement)}</h3><div class="match-item-meta">${escapeHtml(match.importance)} · ${escapeHtml(match.category)}</div></div><span class="match-status ${escapeHtml(match.status)}">${escapeHtml(match.status.replaceAll('-', ' '))}</span></div>
+    <details class="match-trace" ${index === 0 ? 'open' : ''}><summary><span class="trace-summary-label">Job requirement <svg class="icon" aria-hidden="true"><use href="#icon-arrow"/></svg> your evidence</span></summary><div class="trace-flow">
+      <div class="trace-step"><span class="eyebrow">JOB REQUIREMENT</span><blockquote>${escapeHtml(match.jdEvidence.sourceText || match.requirement)}</blockquote><span class="trace-path">${escapeHtml(match.jdEvidence.sourcePath)}</span></div>
+      <div class="trace-arrow trace-arrow-down" aria-hidden="true"><svg class="icon"><use href="#icon-arrow"/></svg></div>
+      <div class="trace-step"><span class="eyebrow">YOUR EVIDENCE</span>${match.evidence.length ? match.evidence.map((item) => `<div class="trace-source"><blockquote>${escapeHtml(item.sourceText)}</blockquote><span class="trace-path">${escapeHtml(item.sourcePath)}</span></div>`).join('') : '<div class="trace-source">No supporting evidence was found in your current resume.</div>'}</div>
+    </div></details>
+  </article>`).join('');
   renderEvidenceTraceability(result);
   const gapResult = { summary: { demonstrated: result.matches.filter((m) => m.status === 'supported').length, partial: result.matches.filter((m) => m.status === 'partial').length, notDemonstrated: result.matches.filter((m) => m.status === 'not-demonstrated').length, requiredGaps: result.matches.filter((m) => m.importance === 'required' && m.status !== 'supported').length, preferredGaps: result.matches.filter((m) => m.importance === 'preferred' && m.status !== 'supported').length }, gaps: result.matches.filter((m) => m.status !== 'supported').map((m) => ({ requirementId: m.requirementId, name: m.requirement, category: m.category, importance: m.importance, priority: m.importance === 'required' ? 'high' : 'medium', status: m.status, jdEvidence: m.jdEvidence, resumeEvidence: m.evidence, interpretation: m.status === 'partial' ? `Related evidence exists, but the current resume does not explicitly demonstrate ${m.requirement}.` : 'No supporting evidence was found in your current resume.', recommendation: { text: m.status === 'partial' ? `Add ${m.requirement}-specific evidence only if that experience is genuine.` : `Add existing ${m.requirement} evidence if you already have it, or build genuine ${m.requirement} experience before claiming it.` } })) }; renderSkillGaps(gapResult);
-  const aiBox = document.getElementById('ai-insights-result'); if (aiBox) aiBox.innerHTML = '<div class="ai-insights-panel"><h3>Optional AI-enhanced insight</h3><p>AI is not configured. Deterministic baseline results remain the source of truth.</p><button type="button" class="button ghost" id="request-ai-insights">Request optional insight</button></div>';
-  const aiStatus = document.getElementById('ai-status'); if (aiStatus) { aiStatus.textContent = 'Optional AI available · deterministic baseline'; const aiButton = document.getElementById('request-ai-insights'); if (aiButton) aiButton.addEventListener('click', requestAIInsights); }
-  container.innerHTML = `<div class="match-result-header"><div class="match-score">${result.summary.scorePercent}%<small>deterministic baseline</small></div><div><div class="match-summary"><span><strong>${result.summary.required.supported}</strong>required supported</span><span><strong>${result.summary.required.partial}</strong>required partial</span><span><strong>${result.summary.preferred.supported}</strong>preferred supported</span><span><strong>${result.summary.required.notDemonstrated + result.summary.preferred.notDemonstrated}</strong>not demonstrated</span></div><p class="job-result-note">Based on evidence currently present in your resume. This is not an AI score or guarantee.</p></div></div><div class="match-list">${items || '<div class="empty-panel panel"><p>No requirements were found in this job description.</p></div>'}</div>`;
+  const aiBox = document.getElementById('ai-insights-result');
+  if (aiBox) aiBox.innerHTML = '<div class="ai-insights-panel"><h3>A second perspective. Not a second score.</h3><p>Advisory only. Your deterministic results remain the source of truth.</p><button type="button" class="button ghost" id="request-ai-insights">Request optional insight</button></div>';
+  document.getElementById('request-ai-insights')?.addEventListener('click', requestAIInsights);
+  renderAIAvailability();
+  const breakdown = (label, group) => `<div class="breakdown-group"><h3>${label}<span>${group.supported} / ${group.total} supported</span></h3><div class="breakdown-track" aria-hidden="true"><span class="supported" style="width:${group.total ? group.supported / group.total * 100 : 0}%"></span><span class="partial" style="width:${group.total ? group.partial / group.total * 100 : 0}%"></span></div><div class="breakdown-counts"><span><strong>${group.supported}</strong> supported</span><span><strong>${group.partial}</strong> partial</span><span><strong>${group.notDemonstrated}</strong> not demonstrated</span></div></div>`;
+  container.innerHTML = `<div class="match-result-header"><div class="match-score"><span class="eyebrow">BASELINE MATCH</span>${result.summary.scorePercent}<span>%</span><small>deterministic baseline</small></div><div class="score-breakdown"><div class="match-summary">${breakdown('Required', result.summary.required)}${breakdown('Preferred', result.summary.preferred)}</div><p class="job-result-note">Based on evidence in your resume. Not an AI score, a prediction, or a guarantee.</p></div></div><div class="requirements-heading"><h2>Requirement by requirement</h2><span>${result.matches.length} requirements</span></div><div class="match-list">${items || '<div class="empty-panel panel"><p>No requirements were found in this job description.</p></div>'}</div>`;
+  renderOverviewStatus();
 }
 async function requestAIInsights() {
   const box = document.getElementById('ai-insights-result'); const jdText = document.getElementById('job-description')?.value || ' ';
@@ -1198,15 +1231,35 @@ function init() {
   const navItems = Array.from(document.querySelectorAll('[data-view]'));
   const pageTitle = document.getElementById('page-title');
   const titleMap = { dashboard: 'Overview', resume: 'Resume', job: 'Job description', analysis: 'Match analysis', evidence: 'Evidence', gaps: 'Skill gaps', settings: 'Settings & privacy' };
+  const dockItems = navItems.filter((item) => item.classList.contains('nav-item'));
   function showView(name) {
+    if (!Object.hasOwn(titleMap, name)) return;
     views.forEach((view) => view.classList.toggle('active', view.id === 'view-' + name));
-    navItems.forEach((item) => item.classList.toggle('active', item.dataset.view === name && item.classList.contains('nav-item')));
-    if (pageTitle) pageTitle.textContent = titleMap[name] || 'Overview';
-    document.querySelector('.sidebar')?.classList.remove('open');
+    dockItems.forEach((item) => {
+      const active = item.dataset.view === name;
+      item.classList.toggle('active', active);
+      if (active) item.setAttribute('aria-current', 'page');
+      else item.removeAttribute('aria-current');
+    });
+    document.querySelector('.nav-list')?.style.setProperty('--active-index', dockItems.findIndex((item) => item.dataset.view === name));
+    if (pageTitle) pageTitle.textContent = titleMap[name];
+    if (name === 'dashboard') renderOverviewStatus();
     window.scrollTo(0, 0);
   }
-  navItems.forEach((item) => item.addEventListener('click', () => showView(item.dataset.view)));
-  document.getElementById('mobile-menu')?.addEventListener('click', () => document.querySelector('.sidebar')?.classList.toggle('open'));
+  document.addEventListener('click', (event) => {
+    const item = event.target.closest('[data-view]');
+    if (!item) return;
+    event.preventDefault();
+    showView(item.dataset.view);
+  });
+  document.querySelector('.nav-list')?.addEventListener('keydown', (event) => {
+    const index = dockItems.indexOf(document.activeElement);
+    if (index < 0 || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? dockItems.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + dockItems.length) % dockItems.length;
+    dockItems[next].focus();
+    showView(dockItems[next].dataset.view);
+  });
   ['evidence-status-filter', 'evidence-importance-filter'].forEach((id) => document.getElementById(id)?.addEventListener('change', () => { if (currentMatchResult) renderEvidenceTraceability(currentMatchResult); }));
   ['gap-status-filter', 'gap-importance-filter', 'gap-priority-filter'].forEach((id) => document.getElementById(id)?.addEventListener('change', () => { if (currentSkillGapResult) renderSkillGaps(currentSkillGapResult); }));
   document.getElementById('run-analysis')?.addEventListener('click', runBrowserBaselineMatch);
@@ -1259,6 +1312,7 @@ function init() {
 
   renderResume(currentResume);
   updateValidationUI(getFormValidationData());
+  renderOverviewStatus();
 }
 
 document.addEventListener('DOMContentLoaded', init);
