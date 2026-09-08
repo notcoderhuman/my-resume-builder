@@ -6,6 +6,38 @@ Resume Intelligence is an evidence-grounded resume and job-description analysis 
 
 [GitHub repository](https://github.com/notcoderhuman/my-resume-builder)
 
+| | |
+| --- | --- |
+| **Analysis** | Deterministic resume ↔ Job Description matching |
+| **Evidence** | Requirement-level traceability |
+| **AI** | Optional, validated advisory layer |
+| **Local AI** | Ollama with `qwen2.5:3b` |
+| **Backend** | Node.js + Express |
+| **Frontend** | HTML, CSS, vanilla JavaScript |
+| **License** | MIT |
+
+## Table of contents
+
+- [What it does](#what-it-does)
+- [Why this project is interesting](#why-this-project-is-interesting)
+- [Why the deterministic baseline comes first](#why-the-deterministic-baseline-comes-first)
+- [How it works](#how-it-works)
+- [Core workflow](#core-workflow)
+- [Running locally](#running-locally)
+- [Quick start](#quick-start)
+- [Using the app](#using-the-app)
+- [Optional local AI with Ollama](#optional-local-ai-with-ollama)
+- [Data and privacy model](#data-and-privacy-model)
+- [Security and integrity](#security-and-integrity)
+- [Architecture and project structure](#architecture-and-project-structure)
+- [For developers](#for-developers)
+- [Tech stack](#tech-stack)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [Future ideas](#future-ideas)
+- [License](#license)
+
 ## What it does
 
 Resume Intelligence separates what a job asks for from what a resume actually supports. It does not treat a keyword as proof by itself, and it does not let optional AI rewrite the authoritative result.
@@ -27,6 +59,19 @@ The workspace includes:
 - Responsive layouts for desktop and mobile screens
 - Keyboard-accessible controls, visible focus states, reduced-motion support, and reduced-transparency fallback
 
+## Why this project is interesting
+
+Resume keywords are not proof. The interesting engineering problem is connecting a Job Description requirement to the exact resume evidence that supports it, while keeping the result deterministic and inspectable.
+
+The system is designed so that:
+
+- Deterministic analysis remains authoritative.
+- Evidence can be traced to structured source paths.
+- AI is optional and cannot invent evidence, metrics, employers, technologies, or source paths.
+- Invalid AI output can be rejected instead of being shown as fact.
+- Deterministic fallback preserves usability when AI is unavailable or unsafe.
+- Changing the resume or Job Description invalidates the current analysis so stale results are not presented as current.
+
 ## Why the deterministic baseline comes first
 
 The deterministic baseline is the authority. It produces the score, statuses, evidence mappings, and skill-gap results from the structured resume and parsed Job Description.
@@ -42,6 +87,17 @@ AI is an optional second layer. It may explain or prioritize information already
 - Source paths or requirement IDs
 
 This separation makes the result inspectable. A user can follow a status back to the requirement and the resume text that supported it, rather than accepting an unexplained AI judgment.
+
+| Responsibility | Deterministic layer | AI layer |
+| --- | --- | --- |
+| Score | Calculates the authoritative score | Must not replace it |
+| Statuses | Produces `supported`, `partial`, and `not-demonstrated` | Must preserve them |
+| Evidence | Selects and preserves resume evidence and source paths | May reference only supplied evidence |
+| Traceability | Connects requirements to resume and Job Description sources | May explain existing results |
+| Skill gaps | Calculates deterministic gaps and priorities | May add advisory interpretation |
+| Resume changes | Does not silently rewrite the resume | Suggestions require user verification |
+
+AI must not invent resume evidence, change an authoritative status, fabricate employers or metrics, create unsupported technologies, or create source paths that do not exist.
 
 ## How it works
 
@@ -63,6 +119,31 @@ flowchart TD
 
 In practical terms:
 
+### Inputs → processing → result → optional AI
+
+- **Inputs:** the structured resume and the target Job Description.
+- **Processing:** the JD analyzer extracts explicit requirements; the matcher compares them with indexed resume evidence.
+- **Authoritative result:** evidence traceability and skill-gap analysis explain the deterministic score and statuses.
+- **Optional AI:** a configured provider may add advisory interpretation; integrity validation accepts it only when it stays grounded, otherwise the deterministic result remains.
+
+## Core workflow
+
+```text
+Resume + Job Description
+          ↓
+   Structured data
+          ↓
+ Deterministic analysis
+          ↓
+ Match + Evidence + Skill gaps
+          ↓
+ Optional AI advisory layer
+```
+
+The AI layer cannot override the deterministic baseline.
+
+In practical terms:
+
 1. Enter resume information in the structured editor.
 2. Paste a target Job Description.
 3. The analyzer extracts explicit requirements and preserves their source text.
@@ -80,6 +161,17 @@ Resume Intelligence currently runs locally. Follow the Quick Start guide below t
 Repository: <https://github.com/notcoderhuman/my-resume-builder>
 
 ## Quick start
+
+### Quick start in 60 seconds
+
+```bash
+git clone https://github.com/notcoderhuman/my-resume-builder.git
+cd my-resume-builder
+npm install
+npm start
+```
+
+Open <http://localhost:3000>.
 
 ### Prerequisites
 
@@ -156,6 +248,14 @@ ollama list
 ollama pull qwen2.5:3b
 ```
 
+What each command does:
+
+- `ollama serve` starts the local Ollama server.
+- `ollama list` checks which models are installed.
+- `ollama pull qwen2.5:3b` downloads the model used by the documented setup.
+
+The environment variables below configure Resume Intelligence to use that local server.
+
 In the terminal where you will start the application, configure the provider:
 
 ```powershell
@@ -183,6 +283,21 @@ npm start
 `GEMINI_API_KEY` is supported as a fallback environment-variable name. Never commit a real key.
 
 For local UI testing without a network provider, the implementation also supports `AI_PROVIDER="mock"`.
+
+## What happens when something goes wrong?
+
+| Situation | Expected behavior |
+| --- | --- |
+| No AI configured | The deterministic baseline still works. |
+| AI unavailable | The application keeps the deterministic result and uses a safe fallback. |
+| AI output is rejected | Integrity validation rejects it and the deterministic baseline remains authoritative. |
+| No resume evidence | The requirement is `not-demonstrated`, not `partial`. |
+| Genuine related evidence | The requirement may be `partial` when actual resume evidence exists but does not fully demonstrate it. |
+| Resume or Job Description changes | Current match, evidence, skill-gap, and AI results become stale and must be refreshed. |
+
+## Project status
+
+Resume Intelligence is currently designed to run locally. There is no currently supported hosted demo; the local workflow is the recommended way to use it. The test commands documented below are the source of truth for the current release.
 
 ## Data and privacy model
 
@@ -230,6 +345,19 @@ These are implementation protections, not a formal security audit or certificati
 | `package.json` | Project metadata, dependencies, scripts, and Node.js engine requirement |
 | `package-lock.json` | Locked npm dependency tree |
 | `LICENSE` | MIT license text |
+
+## For developers
+
+Start with these files when exploring the codebase:
+
+- `server.js` — Express server and API surface.
+- `script.js` — browser state, persistence, rendering, orchestration, and PDF helpers.
+- `lib/` — structured models and domain/intelligence logic.
+- `tests.js` — Node unit and integration coverage.
+- `playwright/` — browser workflow coverage.
+- `style.css` — visual system and responsive styling.
+
+The fuller path-by-path reference remains in the project structure table above.
 
 ## Tech stack
 
